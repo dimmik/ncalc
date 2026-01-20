@@ -86,6 +86,7 @@ namespace Numlock_Calc
             this.historyListBox.ScrollAlwaysVisible = true;
             this.historyListBox.Size = new System.Drawing.Size(384, 154);
             this.historyListBox.TabIndex = 1;
+            this.historyListBox.DoubleClick += new System.EventHandler(this.historyListBox_DoubleClick);
             // 
             // tableLayoutPanel
             // 

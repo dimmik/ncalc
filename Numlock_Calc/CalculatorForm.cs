@@ -83,6 +83,22 @@ namespace Numlock_Calc
             this.KeyDown += new KeyEventHandler(CalculatorForm_KeyDown);
         }
 
+        private void historyListBox_DoubleClick(object sender, EventArgs e)
+        {
+            if (historyListBox.SelectedItem != null)
+            {
+                string selectedHistory = historyListBox.SelectedItem.ToString();
+                int equalsIndex = selectedHistory.LastIndexOf('=');
+                if (equalsIndex != -1)
+                {
+                    string result = selectedHistory.Substring(equalsIndex + 1).Trim();
+                    displayTextBox.Text = result;
+                    currentCalculation = result;
+                    isNewCalculation = true;
+                }
+            }
+        }
+
         private void InitializeTrayIcon()
         {
             string iconPath = System.IO.Path.Combine(Application.StartupPath, "calculator.ico");
@@ -339,6 +355,8 @@ namespace Numlock_Calc
                     break;
                 case Keys.Enter:
                     EqualsClick();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
                     break;
                 case Keys.Escape:
                     ClearAll();
