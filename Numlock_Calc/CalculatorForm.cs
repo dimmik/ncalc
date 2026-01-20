@@ -353,11 +353,6 @@ namespace Numlock_Calc
                 case Keys.Divide:
                     OperatorClick("/");
                     break;
-                case Keys.Enter:
-                    EqualsClick();
-                    e.Handled = true;
-                    e.SuppressKeyPress = true;
-                    break;
                 case Keys.Escape:
                     ClearAll();
                     break;
@@ -442,6 +437,16 @@ namespace Numlock_Calc
             {
                 base.OnFormClosing(e);
             }
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.Enter)
+            {
+                EqualsClick();
+                return true; // Mark the key as handled
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
     }
 }
