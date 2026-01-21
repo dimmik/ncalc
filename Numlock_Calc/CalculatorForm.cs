@@ -297,7 +297,7 @@ namespace Numlock_Calc
                     .Replace("'", "")
                     + " "
                     ; // apostrophe (') - just visual for thousand separation
-                expression = Regex.Replace(expression, @"([^0-9])([0-9]+)([^0-9\.])", "$1$2.1$3"); // all in double 1000 -> 1000.0
+                expression = Regex.Replace(expression, @"(?<!\.)(\b\d+\b)(?!\.)", "$1.0"); // all in double 1000 -> 1000.0
 
                 var result = new DataTable().Compute(expression, null);
                 string formattedResult = FormatNumberForDisplay(result?.ToString() ?? "");
