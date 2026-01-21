@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.IO; // Added for file operations
 
 namespace Numlock_Calc
 {
@@ -23,6 +24,7 @@ namespace Numlock_Calc
         private const uint KEYEVENTF_KEYUP = 0x2;
 
         private bool originalNumLockState;
+        private readonly string historyFilePath = Path.Combine(Application.StartupPath, "history.txt");
 
         [DllImport("user32.dll")]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
@@ -42,7 +44,39 @@ namespace Numlock_Calc
             InitializeCalculator();
             InitializeTrayIcon();
             InitializeHotkeys();
+            LoadHistory(); // Load history on startup
             Application.AddMessageFilter(this);
+        }
+
+        private void LoadHistory()
+        {
+            if (File.Exists(historyFilePath))
+            {
+                try
+                {
+                    string[] historyEntries = File.ReadAllLines(historyFilePath);
+                    foreach (string entry in historyEntries)
+                    {
+                        historyListBox.Items.Add(entry);
+                    }
+                }
+                catch (IOException ex)
+                {
+                    MessageBox.Show($"Error loading history: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void SaveHistoryEntry(string entry)
+        {
+            try
+            {
+                File.AppendAllText(historyFilePath, entry + Environment.NewLine);
+            }
+            catch (IOException ex)
+            {
+                MessageBox.Show($"Error saving history: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void InitializeCalculator()
@@ -202,6 +236,7 @@ namespace Numlock_Calc
 
                 displayTextBox.Text = unaryResult.ToString();
                 historyListBox.Items.Add(historyEntry);
+                SaveHistoryEntry(historyEntry); // Save to file
                 isNewCalculation = true;
             }
             catch (Exception ex)
@@ -221,6 +256,7 @@ namespace Numlock_Calc
                 var result = new DataTable().Compute(expression, null);
                 string historyEntry = $"{currentCalculation} = {result}";
                 historyListBox.Items.Add(historyEntry);
+                SaveHistoryEntry(historyEntry); // Save to file
 
                 currentCalculation = result?.ToString() ?? "";
                 displayTextBox.Text = currentCalculation;
