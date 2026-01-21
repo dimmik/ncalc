@@ -400,7 +400,7 @@ namespace Numlock_Calc
             // 
             // numLockTimer
             // 
-            this.numLockTimer.Interval = 150;
+            this.numLockTimer.Interval = 500;
             // 
             // CalculatorForm
             // 
