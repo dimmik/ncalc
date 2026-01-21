@@ -185,7 +185,7 @@ namespace Numlock_Calc
                 isNewCalculation = false;
             }
             currentCalculation += number;
-            displayTextBox.Text = currentCalculation;
+            UpdateDisplayWithFormattedCurrentNumber();
         }
 
         private void AppendDecimal()
@@ -198,7 +198,7 @@ namespace Numlock_Calc
             if (!currentCalculation.Split(' ', '+', '-', '*', '/').Last().Contains("."))
             {
                 currentCalculation += ".";
-                displayTextBox.Text = currentCalculation;
+                UpdateDisplayWithFormattedCurrentNumber();
             }
         }
 
@@ -231,26 +231,32 @@ namespace Numlock_Calc
                 double currentValue = double.Parse(currentCalculation.Split(' ', '+', '-', '*', '/').Last());
                 double unaryResult = 0;
                 string historyEntry = "";
+                string unformattedHistoryEntryForFile = "";
 
                 switch (op)
                 {
                     case "√":
                         unaryResult = Calculator.SquareRoot(currentValue);
-                        historyEntry = $"√({currentValue}) = {unaryResult}";
+                        unformattedHistoryEntryForFile = $"√({currentValue}) = {unaryResult}";
+                        historyEntry = $"√({FormatNumberForDisplay(currentValue.ToString())}) = {FormatNumberForDisplay(unaryResult.ToString())}";
                         break;
                     case "x²":
                         unaryResult = Calculator.Square(currentValue);
-                        historyEntry = $"({currentValue})² = {unaryResult}";
+                        unformattedHistoryEntryForFile = $"({currentValue})² = {unaryResult}";
+                        historyEntry = $"({FormatNumberForDisplay(currentValue.ToString())})² = {FormatNumberForDisplay(unaryResult.ToString())}";
                         break;
                     case "log":
                         unaryResult = Calculator.Log(currentValue);
-                        historyEntry = $"log({currentValue}) = {unaryResult}";
+                        unformattedHistoryEntryForFile = $"log({currentValue}) = {unaryResult}";
+                        historyEntry = $"log({FormatNumberForDisplay(currentValue.ToString())}) = {FormatNumberForDisplay(unaryResult.ToString())}";
                         break;
                 }
 
                 string formattedHistoryEntry = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}# {historyEntry}";
                 historyListBox.Items.Insert(0, formattedHistoryEntry);
-                SaveHistoryEntry(historyEntry); // Save to file
+                SaveHistoryEntry(unformattedHistoryEntryForFile); // Save unformatted to file
+                currentCalculation = unaryResult.ToString();
+                displayTextBox.Text = FormatNumberForDisplay(currentCalculation);
                 isNewCalculation = true;
             }
             catch (Exception ex)
@@ -268,13 +274,14 @@ namespace Numlock_Calc
             {
                 string expression = currentCalculation.Replace("^", "**"); // DataTable does not support ^
                 var result = new DataTable().Compute(expression, null);
-                string historyEntry = $"{currentCalculation} = {result}";
+                string formattedResult = FormatNumberForDisplay(result?.ToString() ?? "");
+                string historyEntry = $"{currentCalculation} = {formattedResult}"; // Format only the result part for display
                 string formattedHistoryEntry = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}# {historyEntry}";
                 historyListBox.Items.Insert(0, formattedHistoryEntry);
-                SaveHistoryEntry(historyEntry); // Save to file (SaveHistoryEntry will add date/time again)
+                SaveHistoryEntry($"{currentCalculation} = {result}"); // Save unformatted to file
 
                 currentCalculation = result?.ToString() ?? "";
-                displayTextBox.Text = currentCalculation;
+                displayTextBox.Text = FormatNumberForDisplay(currentCalculation);
                 isNewCalculation = true;
             }
             catch (Exception ex)
@@ -301,7 +308,7 @@ namespace Numlock_Calc
                     currentCalculation = currentCalculation.Substring(0, currentCalculation.Length - 1).Trim();
                 }
 
-                displayTextBox.Text = string.IsNullOrEmpty(currentCalculation) ? "0" : currentCalculation;
+                UpdateDisplayWithFormattedCurrentNumber(); // Use the new method
             }
             else
             {
@@ -321,9 +328,52 @@ namespace Numlock_Calc
                     {
                         parts[parts.Count - 1] = (-number).ToString();
                         currentCalculation = string.Join(" ", parts);
-                        displayTextBox.Text = currentCalculation;
+                        UpdateDisplayWithFormattedCurrentNumber(); // Use the new method
                     }
                 }
+            }
+        }
+
+        private string FormatNumberForDisplay(string numberString)
+        {
+            if (double.TryParse(numberString, out double number))
+            {
+                System.Globalization.NumberFormatInfo nfi = (System.Globalization.NumberFormatInfo)System.Globalization.CultureInfo.CurrentCulture.NumberFormat.Clone();
+                nfi.NumberGroupSeparator = "'";
+                nfi.NumberDecimalSeparator = ".";
+
+                if (numberString.Contains("."))
+                {
+                    int decimalPlaces = numberString.Split('.')[1].Length;
+                    return number.ToString("N" + decimalPlaces, nfi);
+                }
+                else
+                {
+                    return number.ToString("N0", nfi);
+                }
+            }
+            return numberString;
+        }
+
+        private void UpdateDisplayWithFormattedCurrentNumber()
+        {
+            if (string.IsNullOrEmpty(currentCalculation))
+            {
+                displayTextBox.Text = "0";
+                return;
+            }
+
+            System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(currentCalculation, @"(\d+(\.\d+)?)$");
+
+            if (match.Success)
+            {
+                string lastNumber = match.Groups[1].Value;
+                string formattedNumber = FormatNumberForDisplay(lastNumber);
+                displayTextBox.Text = currentCalculation.Substring(0, match.Index) + formattedNumber;
+            }
+            else
+            {
+                displayTextBox.Text = currentCalculation;
             }
         }
 
