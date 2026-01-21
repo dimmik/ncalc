@@ -82,7 +82,7 @@ namespace Numlock_Calc
             this.historyListBox.Dock = System.Windows.Forms.DockStyle.Top;
             this.historyListBox.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.historyListBox.FormattingEnabled = true;
-            this.historyListBox.ItemHeight = 40;
+            this.historyListBox.ItemHeight = 30;
             this.historyListBox.Location = new System.Drawing.Point(0, 36);
             this.historyListBox.Name = "historyListBox";
             this.historyListBox.ScrollAlwaysVisible = true;
