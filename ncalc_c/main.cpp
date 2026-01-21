@@ -7,6 +7,8 @@
 #include <map>
 #include <shellapi.h>
 
+std::wstring s_currentDisplayString = L"0"; // Moved to global scope
+
 #define IDC_DISPLAY 101
 #define IDC_BUTTON_0 102
 #define IDC_BUTTON_1 103
@@ -91,19 +93,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 void AppendToDisplay(HWND hwndDisplay, const std::wstring& text, bool isOperator)
 {
-    int len = GetWindowTextLength(hwndDisplay);
-    if (len == 1 && GetWindowTextLength(hwndDisplay) > 0)
+    if (s_currentDisplayString.length() == 1 && s_currentDisplayString[0] == L'0' && !isOperator)
     {
-        wchar_t firstChar[2];
-        GetWindowTextW(hwndDisplay, firstChar, 2);
-        if (firstChar[0] == L'0' && !isOperator)
-        {
-            SetWindowTextW(hwndDisplay, text.c_str());
-            return;
-        }
+        s_currentDisplayString = text;
+        SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
+        return;
     }
-    SendMessage(hwndDisplay, EM_SETSEL, (WPARAM)len, (LPARAM)len);
-    SendMessage(hwndDisplay, EM_REPLACESEL, 0, (LPARAM)text.c_str());
+    s_currentDisplayString += text;
+    SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
 }
 // flag to distinguish numlock ensure from numlock press
 int numlock_ensure = 0;
@@ -122,7 +119,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         hFont = CreateFont(20, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
 
         hwndDisplay = CreateWindowExW(
-            0, L"EDIT", L"0",
+            0, L"EDIT", s_currentDisplayString.c_str(), // Use static string here
             WS_CHILD | WS_VISIBLE | WS_BORDER | ES_RIGHT | ES_READONLY,
             10, 10, 225, 30,
             hwnd, (HMENU)IDC_DISPLAY, NULL, NULL);
@@ -196,14 +193,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 size_t pos = history_entry.find(L" =");
                 if (pos != std::wstring::npos)
                 {
-                    SetWindowTextW(hwndDisplay, history_entry.substr(0, pos).c_str());
+                    s_currentDisplayString = history_entry.substr(0, pos);
+                SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
                 }
             }
         }
 
         if (isNewCalculation && wmId >= IDC_BUTTON_0 && wmId <= IDC_BUTTON_DOT)
         {
-            SetWindowTextW(hwndDisplay, L"");
+            s_currentDisplayString = L"";
+            SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
             isNewCalculation = false;
         }
 
@@ -225,11 +224,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         case IDC_BUTTON_MUL: AppendToDisplay(hwndDisplay, L" * ", true); break;
         case IDC_BUTTON_DIV: AppendToDisplay(hwndDisplay, L" / ", true); break;
         case IDC_BUTTON_C:
-            SetWindowTextW(hwndDisplay, L"0");
+            s_currentDisplayString = L"0";
+            SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
             isNewCalculation = true;
             break;
         case IDC_BUTTON_CE:
-            SetWindowTextW(hwndDisplay, L"0");
+            s_currentDisplayString = L"0";
+            SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
             isNewCalculation = true;
             break;
         case IDC_BUTTON_BS:
@@ -247,44 +248,46 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     text = L"0";
                     isNewCalculation = true;
                 }
-                SetWindowTextW(hwndDisplay, text.c_str());
+                s_currentDisplayString = text;
+                SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
             }
         }
         break;
         case IDC_BUTTON_EQ:
         {
-            int len = GetWindowTextLength(hwndDisplay);
-            wchar_t* buffer = new wchar_t[len + 1];
-            GetWindowTextW(hwndDisplay, buffer, len + 1);
-            std::wstring currentCalculation(buffer);
-            delete[] buffer;
+            std::wstring currentCalculation = s_currentDisplayString;
 
             try
             {
                 double result = EvaluateExpression(currentCalculation);
                 std::wstring resultStr = std::to_wstring(result);
-                SetWindowTextW(hwndDisplay, resultStr.c_str());
+                s_currentDisplayString = resultStr;
+                SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
                 AddToHistory(hwndHistory, currentCalculation + L" = " + resultStr);
             }
             catch (const std::exception& e)
             {
-                MessageBoxA(hwnd, e.what(), "Error", MB_OK | MB_ICONERROR);
-                SetWindowTextW(hwndDisplay, L"0");
+                std::string debug_msg = "Exception: ";
+                debug_msg += e.what();
+                debug_msg += "\ncurrentCalculation: '";
+                debug_msg += std::string(currentCalculation.begin(), currentCalculation.end());
+                debug_msg += "'";
+                MessageBoxA(hwnd, debug_msg.c_str(), "Error", MB_OK | MB_ICONERROR);
+                DebugBreak(); // Added for debugging
+                s_currentDisplayString = L"0";
+                SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
             }
             isNewCalculation = true;
         }
         break;
         case IDC_BUTTON_SQRT:
         {
-            int len = GetWindowTextLength(hwndDisplay);
-            wchar_t* buffer = new wchar_t[len + 1];
-            GetWindowTextW(hwndDisplay, buffer, len + 1);
-            double num = _wtof(buffer);
-            delete[] buffer;
+            double num = std::stod(s_currentDisplayString);
             if (num >= 0)
             {
                 double result = sqrt(num);
-                SetWindowTextW(hwndDisplay, std::to_wstring(result).c_str());
+                s_currentDisplayString = std::to_wstring(result);
+                SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
             }
             else
             {
@@ -295,27 +298,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
         case IDC_BUTTON_SQR:
         {
-            int len = GetWindowTextLength(hwndDisplay);
-            wchar_t* buffer = new wchar_t[len + 1];
-            GetWindowTextW(hwndDisplay, buffer, len + 1);
-            double num = _wtof(buffer);
-            delete[] buffer;
+            double num = std::stod(s_currentDisplayString);
             double result = num * num;
-            SetWindowTextW(hwndDisplay, std::to_wstring(result).c_str());
+            s_currentDisplayString = std::to_wstring(result);
+            SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
             isNewCalculation = true;
         }
         break;
         case IDC_BUTTON_LOG:
         {
-            int len = GetWindowTextLength(hwndDisplay);
-            wchar_t* buffer = new wchar_t[len + 1];
-            GetWindowTextW(hwndDisplay, buffer, len + 1);
-            double num = _wtof(buffer);
-            delete[] buffer;
+            double num = std::stod(s_currentDisplayString);
             if (num > 0)
             {
                 double result = log10(num);
-                SetWindowTextW(hwndDisplay, std::to_wstring(result).c_str());
+                s_currentDisplayString = std::to_wstring(result);
+                SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
             }
             else
             {
@@ -326,13 +323,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
         case IDC_BUTTON_NEG:
         {
-            int len = GetWindowTextLength(hwndDisplay);
-            wchar_t* buffer = new wchar_t[len + 1];
-            GetWindowTextW(hwndDisplay, buffer, len + 1);
-            double num = _wtof(buffer);
-            delete[] buffer;
+            double num = std::stod(s_currentDisplayString);
             double result = -num;
-            SetWindowTextW(hwndDisplay, std::to_wstring(result).c_str());
+            s_currentDisplayString = std::to_wstring(result);
+            SetWindowTextW(hwndDisplay, s_currentDisplayString.c_str());
             isNewCalculation = true;
         }
         break;
@@ -449,35 +443,78 @@ double EvaluateExpression(const std::wstring& expression) {
         tokens.push_back(token);
     }
 
+    std::vector<std::wstring> sanitized_tokens;
+    bool last_was_operator = true;
+    for (const auto& token : tokens) {
+        bool is_operator = (token.length() == 1 && wcschr(L"+-*/", token[0]));
+        if (is_operator) {
+            if (!sanitized_tokens.empty() && last_was_operator) {
+                sanitized_tokens.back() = token; // Replace previous operator
+            }
+            else {
+                sanitized_tokens.push_back(token);
+            }
+            last_was_operator = true;
+        }
+        else {
+            sanitized_tokens.push_back(token);
+            last_was_operator = false;
+        }
+    }
+
+    if (!sanitized_tokens.empty() && last_was_operator) {
+        sanitized_tokens.pop_back(); // Remove trailing operator
+    }
+
     std::stack<double> values;
     std::stack<std::wstring> ops;
 
-    for (const auto& token : tokens) {
-        if (iswdigit(token[0]) || (token.length() > 1 && (iswdigit(token[1]) || token[1] == L'.'))) {
-            values.push(std::stod(token));
+    for (const auto& current_token : sanitized_tokens) {
+        bool is_number = false;
+        double num_val = 0.0;
+        try {
+            size_t pos;
+            num_val = std::stod(current_token, &pos);
+            if (pos == current_token.length()) { // Successfully converted the whole string
+                is_number = true;
+            }
+        }
+        catch (const std::invalid_argument&) {
+            // Not a number
+        }
+        catch (const std::out_of_range&) {
+            throw std::runtime_error("Number out of range"); // Treat as error
+        }
+
+        if (is_number) {
+            values.push(num_val);
         }
         else {
-            while (!ops.empty() && getPrecedence(ops.top()) >= getPrecedence(token)) {
-                double val2 = values.top();
-                values.pop();
-                double val1 = values.top();
-                values.pop();
-                std::wstring op = ops.top();
-                ops.pop();
+            while (!ops.empty() && getPrecedence(ops.top()) >= getPrecedence(current_token)) {
+                if (values.size() < 2) throw std::runtime_error("Invalid expression: not enough values for operator");
+                double val2 = values.top(); values.pop();
+                double val1 = values.top(); values.pop();
+                std::wstring op = ops.top(); ops.pop();
                 values.push(applyOp(val1, val2, op));
             }
-            ops.push(token);
+            ops.push(current_token);
         }
     }
 
     while (!ops.empty()) {
-        double val2 = values.top();
-        values.pop();
-        double val1 = values.top();
-        values.pop();
-        std::wstring op = ops.top();
-        ops.pop();
+        if (values.size() < 2) throw std::runtime_error("Invalid expression: not enough values for operator");
+        double val2 = values.top(); values.pop();
+        double val1 = values.top(); values.pop();
+        std::wstring op = ops.top(); ops.pop();
         values.push(applyOp(val1, val2, op));
+    }
+
+    if (values.empty()) {
+        throw std::runtime_error("Expression resulted in empty value stack. Input was: " + std::string(expression.begin(), expression.end()));
+    }
+
+    if (values.size() > 1) {
+        throw std::runtime_error("Invalid expression: too many values");
     }
 
     return values.top();
