@@ -50,6 +50,7 @@ namespace Numlock_Calc
 
         private void LoadHistory()
         {
+            historyListBox.Items.Clear(); // Clear existing items before loading
             if (File.Exists(historyFilePath))
             {
                 try
@@ -71,7 +72,14 @@ namespace Numlock_Calc
         {
             try
             {
-                File.AppendAllText(historyFilePath, entry + Environment.NewLine);
+                string formattedEntry = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}# {entry}";
+                List<string> history = new List<string>();
+                if (File.Exists(historyFilePath))
+                {
+                    history.AddRange(File.ReadAllLines(historyFilePath));
+                }
+                history.Insert(0, formattedEntry); // Add new entry to the top
+                File.WriteAllLines(historyFilePath, history);
             }
             catch (IOException ex)
             {
@@ -121,7 +129,7 @@ namespace Numlock_Calc
         {
             if (historyListBox.SelectedItem != null)
             {
-                string selectedHistory = historyListBox.SelectedItem.ToString();
+                string selectedHistory = (string)historyListBox.SelectedItem;
                 int equalsIndex = selectedHistory.LastIndexOf('=');
                 if (equalsIndex != -1)
                 {
@@ -228,14 +236,8 @@ namespace Numlock_Calc
                         break;
                 }
 
-                // Replace the last number with the result
-                var parts = currentCalculation.Split(' ').ToList();
-                parts.RemoveAt(parts.Count - 1);
-                currentCalculation = string.Join(" ", parts) + (parts.Any() ? " " : "") + unaryResult.ToString();
-
-
-                displayTextBox.Text = unaryResult.ToString();
-                historyListBox.Items.Add(historyEntry);
+                string formattedHistoryEntry = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}# {historyEntry}";
+                historyListBox.Items.Insert(0, formattedHistoryEntry);
                 SaveHistoryEntry(historyEntry); // Save to file
                 isNewCalculation = true;
             }
@@ -255,8 +257,9 @@ namespace Numlock_Calc
                 string expression = currentCalculation.Replace("^", "**"); // DataTable does not support ^
                 var result = new DataTable().Compute(expression, null);
                 string historyEntry = $"{currentCalculation} = {result}";
-                historyListBox.Items.Add(historyEntry);
-                SaveHistoryEntry(historyEntry); // Save to file
+                string formattedHistoryEntry = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}# {historyEntry}";
+                historyListBox.Items.Insert(0, formattedHistoryEntry);
+                SaveHistoryEntry(historyEntry); // Save to file (SaveHistoryEntry will add date/time again)
 
                 currentCalculation = result?.ToString() ?? "";
                 displayTextBox.Text = currentCalculation;
