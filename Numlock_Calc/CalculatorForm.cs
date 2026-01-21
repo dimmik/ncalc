@@ -8,7 +8,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.IO; // Added for file operations
+using System.IO;
+using System.Text.RegularExpressions; // Added for file operations
 
 namespace Numlock_Calc
 {
@@ -289,7 +290,15 @@ namespace Numlock_Calc
 
             try
             {
-                string expression = currentCalculation.Replace("^", "**"); // DataTable does not support ^
+
+                string expression = " " 
+                    + currentCalculation
+                    .Replace("^", "**") // DataTable does not support ^
+                    .Replace("'", "")
+                    + " "
+                    ; // apostrophe (') - just visual for thousand separation
+                expression = Regex.Replace(expression, @"(?<!\.)(\b\d+\b)(?!\.)", "$1.0"); // all in double 1000 -> 1000.0
+
                 var result = new DataTable().Compute(expression, null);
                 string formattedResult = FormatNumberForDisplay(result?.ToString() ?? "");
                 string historyEntry = $"{currentCalculation} = {formattedResult}"; // Format only the result part for display
