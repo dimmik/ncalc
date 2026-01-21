@@ -132,7 +132,7 @@ namespace Numlock_Calc
             buttonLog.Click += (s, e) => UnaryOperatorClick("log");
 
             // Other buttons
-            buttonEquals.Click += (s, e) => EqualsClick();
+            buttonEquals.Click += (s, e) => EqualsClick(s, e);
             buttonC.Click += (s, e) => ClearAll();
             buttonBackspace.Click += (s, e) => Backspace();
             buttonNegate.Click += (s, e) => Negate();
@@ -283,7 +283,7 @@ namespace Numlock_Calc
             }
         }
 
-        private void EqualsClick()
+        private void EqualsClick(object sender, EventArgs e)
         {
             if (isNewCalculation || string.IsNullOrEmpty(currentCalculation)) return;
 
@@ -561,7 +561,7 @@ namespace Numlock_Calc
         {
             if (keyData == Keys.Enter)
             {
-                EqualsClick();
+                EqualsClick(this, EventArgs.Empty);
                 return true; // Mark the key as handled
             }
             return base.ProcessCmdKey(ref msg, keyData);
@@ -621,5 +621,6 @@ namespace Numlock_Calc
             // Dispose of custom fonts
             dateTimeFont.Dispose();
         }
+
     }
 }
