@@ -87,6 +87,22 @@ namespace Numlock_Calc
             }
         }
 
+        private void ClearHistory()
+        {
+            historyListBox.Items.Clear();
+            try
+            {
+                if (File.Exists(historyFilePath))
+                {
+                    File.Delete(historyFilePath);
+                }
+            }
+            catch (IOException ex)
+            {
+                MessageBox.Show($"Error clearing history file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void InitializeCalculator()
         {
             displayTextBox.Text = "0";
@@ -124,6 +140,7 @@ namespace Numlock_Calc
             buttonCloseParenthesis.Click += (s, e) => AppendParenthesis(")");
 
             this.KeyDown += new KeyEventHandler(CalculatorForm_KeyDown);
+            this.clearHistoryMenuItem.Click += (s, e) => ClearHistory();
         }
 
         private void AppendParenthesis(string parenthesis)

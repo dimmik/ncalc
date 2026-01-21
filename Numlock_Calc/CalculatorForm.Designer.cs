@@ -61,6 +61,7 @@ namespace Numlock_Calc
             this.contextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.showMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exitMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.clearHistoryMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.numLockTimer = new System.Windows.Forms.Timer(this.components);
             this.tableLayoutPanel.SuspendLayout();
             this.contextMenuStrip.SuspendLayout();
@@ -88,6 +89,7 @@ namespace Numlock_Calc
             this.historyListBox.ScrollAlwaysVisible = true;
             this.historyListBox.Size = new System.Drawing.Size(384, 154);
             this.historyListBox.TabIndex = 1;
+            this.historyListBox.ContextMenuStrip = this.contextMenuStrip; // Add this line
             this.historyListBox.DoubleClick += new System.EventHandler(this.historyListBox_DoubleClick);
             this.historyListBox.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.historyListBox_DrawItem);
             // 
@@ -396,9 +398,10 @@ namespace Numlock_Calc
             // 
             this.contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.showMenuItem,
-            this.exitMenuItem});
+            this.exitMenuItem,
+            this.clearHistoryMenuItem});
             this.contextMenuStrip.Name = "contextMenuStrip";
-            this.contextMenuStrip.Size = new System.Drawing.Size(161, 48);
+            this.contextMenuStrip.Size = new System.Drawing.Size(161, 70);
             // 
             // showMenuItem
             // 
@@ -411,6 +414,12 @@ namespace Numlock_Calc
             this.exitMenuItem.Name = "exitMenuItem";
             this.exitMenuItem.Size = new System.Drawing.Size(160, 22);
             this.exitMenuItem.Text = "Exit";
+            // 
+            // clearHistoryMenuItem
+            // 
+            this.clearHistoryMenuItem.Name = "clearHistoryMenuItem";
+            this.clearHistoryMenuItem.Size = new System.Drawing.Size(160, 22);
+            this.clearHistoryMenuItem.Text = "Clear History";
             // 
             // numLockTimer
             // 
@@ -470,6 +479,7 @@ namespace Numlock_Calc
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip;
         private System.Windows.Forms.ToolStripMenuItem showMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exitMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem clearHistoryMenuItem;
         private System.Windows.Forms.Timer numLockTimer;
     }
 }
