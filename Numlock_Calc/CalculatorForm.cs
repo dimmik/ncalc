@@ -118,11 +118,23 @@ namespace Numlock_Calc
             // Other buttons
             buttonEquals.Click += (s, e) => EqualsClick();
             buttonC.Click += (s, e) => ClearAll();
-            buttonCE.Click += (s, e) => ClearEntry();
             buttonBackspace.Click += (s, e) => Backspace();
             buttonNegate.Click += (s, e) => Negate();
+            buttonOpenParenthesis.Click += (s, e) => AppendParenthesis("(");
+            buttonCloseParenthesis.Click += (s, e) => AppendParenthesis(")");
 
             this.KeyDown += new KeyEventHandler(CalculatorForm_KeyDown);
+        }
+
+        private void AppendParenthesis(string parenthesis)
+        {
+            if (isNewCalculation)
+            {
+                currentCalculation = "";
+                isNewCalculation = false;
+            }
+            currentCalculation += parenthesis;
+            displayTextBox.Text = currentCalculation;
         }
 
         private void historyListBox_DoubleClick(object sender, EventArgs e)
@@ -279,24 +291,6 @@ namespace Numlock_Calc
             isNewCalculation = true;
         }
 
-        private void ClearEntry()
-        {
-            if (currentCalculation.Length > 0)
-            {
-                var parts = currentCalculation.Trim().Split(' ').ToList();
-                if (parts.Count > 0)
-                {
-                    parts.RemoveAt(parts.Count - 1);
-                    currentCalculation = string.Join(" ", parts);
-                    if (parts.Count > 0 && !IsLastCharOperator())
-                    {
-                        currentCalculation += " ";
-                    }
-                }
-                displayTextBox.Text = string.IsNullOrEmpty(currentCalculation) ? "0" : currentCalculation;
-            }
-        }
-
         private void Backspace()
         {
             if (!string.IsNullOrEmpty(currentCalculation) && !isNewCalculation)
@@ -338,6 +332,15 @@ namespace Numlock_Calc
             switch (e.KeyCode)
             {
                 case Keys.D0:
+                    if (e.Shift)
+                    {
+                        AppendParenthesis(")");
+                    }
+                    else
+                    {
+                        AppendNumber("0");
+                    }
+                    break;
                 case Keys.NumPad0:
                     AppendNumber("0");
                     break;
@@ -374,6 +377,15 @@ namespace Numlock_Calc
                     AppendNumber("8");
                     break;
                 case Keys.D9:
+                    if (e.Shift)
+                    {
+                        AppendParenthesis("(");
+                    }
+                    else
+                    {
+                        AppendNumber("9");
+                    }
+                    break;
                 case Keys.NumPad9:
                     AppendNumber("9");
                     break;
@@ -398,8 +410,8 @@ namespace Numlock_Calc
                 case Keys.Back:
                     Backspace();
                     break;
-            }
-        }
+            } // Closing brace for the switch statement
+        } // Closing brace for the CalculatorForm_KeyDown method
 
         private void HideToTray()
         {

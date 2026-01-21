@@ -51,11 +51,12 @@ namespace Numlock_Calc
             this.buttonDivide = new System.Windows.Forms.Button();
             this.buttonBackspace = new System.Windows.Forms.Button();
             this.buttonC = new System.Windows.Forms.Button();
-            this.buttonCE = new System.Windows.Forms.Button();
             this.buttonSqrt = new System.Windows.Forms.Button();
             this.buttonSquare = new System.Windows.Forms.Button();
             this.buttonPower = new System.Windows.Forms.Button();
             this.buttonLog = new System.Windows.Forms.Button();
+            this.buttonOpenParenthesis = new System.Windows.Forms.Button();
+            this.buttonCloseParenthesis = new System.Windows.Forms.Button();
             this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
             this.contextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.showMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -116,7 +117,8 @@ namespace Numlock_Calc
             this.tableLayoutPanel.Controls.Add(this.buttonDivide, 3, 1);
             this.tableLayoutPanel.Controls.Add(this.buttonBackspace, 2, 1);
             this.tableLayoutPanel.Controls.Add(this.buttonC, 1, 1);
-            this.tableLayoutPanel.Controls.Add(this.buttonCE, 0, 1);
+            this.tableLayoutPanel.Controls.Add(this.buttonOpenParenthesis, 0, 1);
+            this.tableLayoutPanel.Controls.Add(this.buttonCloseParenthesis, 1, 1);
             this.tableLayoutPanel.Controls.Add(this.buttonSqrt, 0, 0);
             this.tableLayoutPanel.Controls.Add(this.buttonSquare, 1, 0);
             this.tableLayoutPanel.Controls.Add(this.buttonPower, 2, 0);
@@ -324,16 +326,6 @@ namespace Numlock_Calc
             this.buttonC.Text = "C";
             this.buttonC.UseVisualStyleBackColor = true;
             // 
-            // buttonCE
-            // 
-            this.buttonCE.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonCE.Location = new System.Drawing.Point(3, 64);
-            this.buttonCE.Name = "buttonCE";
-            this.buttonCE.Size = new System.Drawing.Size(90, 55);
-            this.buttonCE.TabIndex = 4;
-            this.buttonCE.Text = "CE";
-            this.buttonCE.UseVisualStyleBackColor = true;
-            // 
             // buttonSqrt
             // 
             this.buttonSqrt.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -373,6 +365,26 @@ namespace Numlock_Calc
             this.buttonLog.TabIndex = 27;
             this.buttonLog.Text = "log";
             this.buttonLog.UseVisualStyleBackColor = true;
+            // 
+            // buttonOpenParenthesis
+            // 
+            this.buttonOpenParenthesis.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.buttonOpenParenthesis.Location = new System.Drawing.Point(3, 64);
+            this.buttonOpenParenthesis.Name = "buttonOpenParenthesis";
+            this.buttonOpenParenthesis.Size = new System.Drawing.Size(90, 55);
+            this.buttonOpenParenthesis.TabIndex = 28;
+            this.buttonOpenParenthesis.Text = "(";
+            this.buttonOpenParenthesis.UseVisualStyleBackColor = true;
+            // 
+            // buttonCloseParenthesis
+            // 
+            this.buttonCloseParenthesis.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.buttonCloseParenthesis.Location = new System.Drawing.Point(99, 64);
+            this.buttonCloseParenthesis.Name = "buttonCloseParenthesis";
+            this.buttonCloseParenthesis.Size = new System.Drawing.Size(90, 55);
+            this.buttonCloseParenthesis.TabIndex = 29;
+            this.buttonCloseParenthesis.Text = ")";
+            this.buttonCloseParenthesis.UseVisualStyleBackColor = true;
             // 
             // notifyIcon
             // 
@@ -448,11 +460,12 @@ namespace Numlock_Calc
         private System.Windows.Forms.Button buttonDivide;
         private System.Windows.Forms.Button buttonBackspace;
         private System.Windows.Forms.Button buttonC;
-        private System.Windows.Forms.Button buttonCE;
         private System.Windows.Forms.Button buttonSqrt;
         private System.Windows.Forms.Button buttonSquare;
         private System.Windows.Forms.Button buttonPower;
         private System.Windows.Forms.Button buttonLog;
+        private System.Windows.Forms.Button buttonOpenParenthesis;
+        private System.Windows.Forms.Button buttonCloseParenthesis;
         private System.Windows.Forms.NotifyIcon notifyIcon;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip;
         private System.Windows.Forms.ToolStripMenuItem showMenuItem;
