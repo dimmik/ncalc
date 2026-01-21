@@ -478,8 +478,16 @@ namespace Numlock_Calc
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            Application.RemoveMessageFilter(this);
-            base.OnFormClosing(e);
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true; // Cancel the close operation
+                HideToTray();    // Minimize to tray
+            }
+            else
+            {
+                Application.RemoveMessageFilter(this);
+                base.OnFormClosing(e);
+            }
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
