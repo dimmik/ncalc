@@ -72,7 +72,7 @@ namespace Numlock_Calc
         {
             try
             {
-                string formattedEntry = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}# {entry}";
+                string formattedEntry = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}#{entry}";
                 List<string> history = new List<string>();
                 if (File.Exists(historyFilePath))
                 {
@@ -478,6 +478,61 @@ namespace Numlock_Calc
                 return true; // Mark the key as handled
             }
             return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private void historyListBox_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0 || e.Index >= historyListBox.Items.Count)
+            {
+                return;
+            }
+
+            string itemText = (string)historyListBox.Items[e.Index]; // Explicit cast to string
+            int separatorIndex = itemText.IndexOf('#');
+
+            string dateTimePart = "";
+            string historyPart = itemText;
+
+            if (separatorIndex != -1)
+            {
+                dateTimePart = itemText.Substring(0, separatorIndex).Trim();
+                historyPart = itemText.Substring(separatorIndex + 1).Trim();
+            }
+
+            // Draw the background for the entire item (this will be the default background for the history part)
+            e.DrawBackground();
+
+            // Define fonts
+            Font defaultFont = e.Font!; // Null-forgiving operator
+            Font dateTimeFont = new Font(defaultFont.FontFamily, defaultFont.Size * 0.8f, FontStyle.Bold); // Smaller and bold
+            Font historyFont = defaultFont;
+
+            // Define brushes
+            Brush dateTimeTextBrush = Brushes.Black; // Text color for datetime
+            Brush historyTextBrush = new SolidBrush(e.ForeColor); // Use the default fore color for history
+
+            // Calculate text positions
+            SizeF dateTimeSize = e.Graphics.MeasureString(dateTimePart, dateTimeFont);
+            RectangleF dateTimeRect = new RectangleF(e.Bounds.Left, e.Bounds.Top, dateTimeSize.Width + 5, e.Bounds.Height); // +5 for padding
+            RectangleF historyRect = new RectangleF(e.Bounds.Left + dateTimeSize.Width + 10, e.Bounds.Top, e.Bounds.Width - dateTimeSize.Width - 10, e.Bounds.Height); // +10 for padding and separator space
+
+            // Draw grey background for the datetime part
+            using (SolidBrush greyBrush = new SolidBrush(Color.LightGray)) // Use a light grey color
+            {
+                e.Graphics.FillRectangle(greyBrush, dateTimeRect);
+            }
+
+            // Draw the datetime text
+            e.Graphics.DrawString(dateTimePart, dateTimeFont, dateTimeTextBrush, dateTimeRect.Location);
+
+            // Draw the history part text
+            e.Graphics.DrawString(historyPart, historyFont, historyTextBrush, historyRect.Location);
+
+            // Draw the focus rectangle if the item is selected
+            e.DrawFocusRectangle();
+
+            // Dispose of custom fonts
+            dateTimeFont.Dispose();
         }
     }
 }

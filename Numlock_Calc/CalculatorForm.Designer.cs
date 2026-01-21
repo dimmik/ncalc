@@ -79,14 +79,16 @@ namespace Numlock_Calc
             // historyListBox
             // 
             this.historyListBox.Dock = System.Windows.Forms.DockStyle.Top;
+            this.historyListBox.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.historyListBox.FormattingEnabled = true;
-            this.historyListBox.ItemHeight = 15;
+            this.historyListBox.ItemHeight = 40;
             this.historyListBox.Location = new System.Drawing.Point(0, 36);
             this.historyListBox.Name = "historyListBox";
             this.historyListBox.ScrollAlwaysVisible = true;
             this.historyListBox.Size = new System.Drawing.Size(384, 154);
             this.historyListBox.TabIndex = 1;
             this.historyListBox.DoubleClick += new System.EventHandler(this.historyListBox_DoubleClick);
+            this.historyListBox.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.historyListBox_DrawItem);
             // 
             // tableLayoutPanel
             // 
