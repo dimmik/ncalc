@@ -28,421 +28,419 @@ namespace Numlock_Calc
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
-            this.displayTextBox = new System.Windows.Forms.TextBox();
-            this.historyListBox = new System.Windows.Forms.ListBox();
-            this.tableLayoutPanel = new System.Windows.Forms.TableLayoutPanel();
-            this.buttonEquals = new System.Windows.Forms.Button();
-            this.buttonDecimal = new System.Windows.Forms.Button();
-            this.button0 = new System.Windows.Forms.Button();
-            this.buttonNegate = new System.Windows.Forms.Button();
-            this.buttonAdd = new System.Windows.Forms.Button();
-            this.button3 = new System.Windows.Forms.Button();
-            this.button2 = new System.Windows.Forms.Button();
-            this.button1 = new System.Windows.Forms.Button();
-            this.buttonSubtract = new System.Windows.Forms.Button();
-            this.button6 = new System.Windows.Forms.Button();
-            this.button5 = new System.Windows.Forms.Button();
-            this.button4 = new System.Windows.Forms.Button();
-            this.buttonMultiply = new System.Windows.Forms.Button();
-            this.button9 = new System.Windows.Forms.Button();
-            this.button8 = new System.Windows.Forms.Button();
-            this.button7 = new System.Windows.Forms.Button();
-            this.buttonDivide = new System.Windows.Forms.Button();
-            this.buttonBackspace = new System.Windows.Forms.Button();
-            this.buttonC = new System.Windows.Forms.Button();
-            this.buttonSqrt = new System.Windows.Forms.Button();
-            this.buttonSquare = new System.Windows.Forms.Button();
-            this.buttonPower = new System.Windows.Forms.Button();
-            this.buttonLog = new System.Windows.Forms.Button();
-            this.buttonOpenParenthesis = new System.Windows.Forms.Button();
-            this.buttonCloseParenthesis = new System.Windows.Forms.Button();
-            this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
-            this.contextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.showMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.exitMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.clearHistoryMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.numLockTimer = new System.Windows.Forms.Timer(this.components);
-            this.tableLayoutPanel.SuspendLayout();
-            this.contextMenuStrip.SuspendLayout();
-            this.SuspendLayout();
+            components = new System.ComponentModel.Container();
+            displayTextBox = new TextBox();
+            historyListBox = new ListBox();
+            contextMenuStrip = new ContextMenuStrip(components);
+            showMenuItem = new ToolStripMenuItem();
+            exitMenuItem = new ToolStripMenuItem();
+            clearHistoryMenuItem = new ToolStripMenuItem();
+            tableLayoutPanel = new TableLayoutPanel();
+            buttonEquals = new Button();
+            buttonDecimal = new Button();
+            button0 = new Button();
+            buttonNegate = new Button();
+            buttonAdd = new Button();
+            button3 = new Button();
+            button2 = new Button();
+            button1 = new Button();
+            buttonSubtract = new Button();
+            button6 = new Button();
+            button5 = new Button();
+            button4 = new Button();
+            buttonMultiply = new Button();
+            button9 = new Button();
+            button8 = new Button();
+            button7 = new Button();
+            buttonDivide = new Button();
+            buttonBackspace = new Button();
+            buttonC = new Button();
+            buttonOpenParenthesis = new Button();
+            buttonCloseParenthesis = new Button();
+            buttonSqrt = new Button();
+            buttonSquare = new Button();
+            buttonPower = new Button();
+            buttonLog = new Button();
+            notifyIcon = new NotifyIcon(components);
+            numLockTimer = new System.Windows.Forms.Timer(components);
+            contextMenuStrip.SuspendLayout();
+            tableLayoutPanel.SuspendLayout();
+            SuspendLayout();
             // 
             // displayTextBox
             // 
-            this.displayTextBox.Dock = System.Windows.Forms.DockStyle.Top;
-            this.displayTextBox.Font = new System.Drawing.Font("Segoe UI", 16F);
-            this.displayTextBox.Location = new System.Drawing.Point(0, 0);
-            this.displayTextBox.Name = "displayTextBox";
-            this.displayTextBox.ReadOnly = true;
-            this.displayTextBox.Size = new System.Drawing.Size(384, 36);
-            this.displayTextBox.TabIndex = 0;
-            this.displayTextBox.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            displayTextBox.Dock = DockStyle.Top;
+            displayTextBox.Font = new Font("Segoe UI", 16F);
+            displayTextBox.Location = new Point(0, 0);
+            displayTextBox.Name = "displayTextBox";
+            displayTextBox.ReadOnly = true;
+            displayTextBox.Size = new Size(384, 36);
+            displayTextBox.TabIndex = 0;
+            displayTextBox.TextAlign = HorizontalAlignment.Right;
             // 
             // historyListBox
             // 
-            this.historyListBox.Dock = System.Windows.Forms.DockStyle.Top;
-            this.historyListBox.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
-            this.historyListBox.FormattingEnabled = true;
-            this.historyListBox.ItemHeight = 30;
-            this.historyListBox.Location = new System.Drawing.Point(0, 36);
-            this.historyListBox.Name = "historyListBox";
-            this.historyListBox.ScrollAlwaysVisible = true;
-            this.historyListBox.Size = new System.Drawing.Size(384, 154);
-            this.historyListBox.TabIndex = 1;
-            this.historyListBox.ContextMenuStrip = this.contextMenuStrip; // Add this line
-            this.historyListBox.DoubleClick += new System.EventHandler(this.historyListBox_DoubleClick);
-            this.historyListBox.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.historyListBox_DrawItem);
-            // 
-            // tableLayoutPanel
-            // 
-            this.tableLayoutPanel.ColumnCount = 4;
-            this.tableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.tableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.tableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.tableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.tableLayoutPanel.Controls.Add(this.buttonEquals, 3, 5);
-            this.tableLayoutPanel.Controls.Add(this.buttonDecimal, 2, 5);
-            this.tableLayoutPanel.Controls.Add(this.button0, 1, 5);
-            this.tableLayoutPanel.Controls.Add(this.buttonNegate, 0, 5);
-            this.tableLayoutPanel.Controls.Add(this.buttonAdd, 3, 4);
-            this.tableLayoutPanel.Controls.Add(this.button3, 2, 4);
-            this.tableLayoutPanel.Controls.Add(this.button2, 1, 4);
-            this.tableLayoutPanel.Controls.Add(this.button1, 0, 4);
-            this.tableLayoutPanel.Controls.Add(this.buttonSubtract, 3, 3);
-            this.tableLayoutPanel.Controls.Add(this.button6, 2, 3);
-            this.tableLayoutPanel.Controls.Add(this.button5, 1, 3);
-            this.tableLayoutPanel.Controls.Add(this.button4, 0, 3);
-            this.tableLayoutPanel.Controls.Add(this.buttonMultiply, 3, 2);
-            this.tableLayoutPanel.Controls.Add(this.button9, 2, 2);
-            this.tableLayoutPanel.Controls.Add(this.button8, 1, 2);
-            this.tableLayoutPanel.Controls.Add(this.button7, 0, 2);
-            this.tableLayoutPanel.Controls.Add(this.buttonDivide, 3, 1);
-            this.tableLayoutPanel.Controls.Add(this.buttonBackspace, 2, 1);
-            this.tableLayoutPanel.Controls.Add(this.buttonC, 1, 1);
-            this.tableLayoutPanel.Controls.Add(this.buttonOpenParenthesis, 0, 1);
-            this.tableLayoutPanel.Controls.Add(this.buttonCloseParenthesis, 1, 1);
-            this.tableLayoutPanel.Controls.Add(this.buttonSqrt, 0, 0);
-            this.tableLayoutPanel.Controls.Add(this.buttonSquare, 1, 0);
-            this.tableLayoutPanel.Controls.Add(this.buttonPower, 2, 0);
-            this.tableLayoutPanel.Controls.Add(this.buttonLog, 3, 0);
-            this.tableLayoutPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel.Location = new System.Drawing.Point(0, 190);
-            this.tableLayoutPanel.Name = "tableLayoutPanel";
-            this.tableLayoutPanel.RowCount = 6;
-            this.tableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.tableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.tableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.tableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.tableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.tableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.tableLayoutPanel.Size = new System.Drawing.Size(384, 371);
-            this.tableLayoutPanel.TabIndex = 2;
-            // 
-            // buttonEquals
-            // 
-            this.buttonEquals.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonEquals.Location = new System.Drawing.Point(291, 308);
-            this.buttonEquals.Name = "buttonEquals";
-            this.buttonEquals.Size = new System.Drawing.Size(90, 60);
-            this.buttonEquals.TabIndex = 23;
-            this.buttonEquals.Text = "=";
-            this.buttonEquals.UseVisualStyleBackColor = true;
-            // 
-            // buttonDecimal
-            // 
-            this.buttonDecimal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonDecimal.Location = new System.Drawing.Point(195, 308);
-            this.buttonDecimal.Name = "buttonDecimal";
-            this.buttonDecimal.Size = new System.Drawing.Size(90, 60);
-            this.buttonDecimal.TabIndex = 22;
-            this.buttonDecimal.Text = ".";
-            this.buttonDecimal.UseVisualStyleBackColor = true;
-            // 
-            // button0
-            // 
-            this.button0.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button0.Location = new System.Drawing.Point(99, 308);
-            this.button0.Name = "button0";
-            this.button0.Size = new System.Drawing.Size(90, 60);
-            this.button0.TabIndex = 21;
-            this.button0.Text = "0";
-            this.button0.UseVisualStyleBackColor = true;
-            // 
-            // buttonNegate
-            // 
-            this.buttonNegate.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonNegate.Location = new System.Drawing.Point(3, 308);
-            this.buttonNegate.Name = "buttonNegate";
-            this.buttonNegate.Size = new System.Drawing.Size(90, 60);
-            this.buttonNegate.TabIndex = 20;
-            this.buttonNegate.Text = "+/-";
-            this.buttonNegate.UseVisualStyleBackColor = true;
-            // 
-            // buttonAdd
-            // 
-            this.buttonAdd.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonAdd.Location = new System.Drawing.Point(291, 247);
-            this.buttonAdd.Name = "buttonAdd";
-            this.buttonAdd.Size = new System.Drawing.Size(90, 55);
-            this.buttonAdd.TabIndex = 19;
-            this.buttonAdd.Text = "+";
-            this.buttonAdd.UseVisualStyleBackColor = true;
-            // 
-            // button3
-            // 
-            this.button3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button3.Location = new System.Drawing.Point(195, 247);
-            this.button3.Name = "button3";
-            this.button3.Size = new System.Drawing.Size(90, 55);
-            this.button3.TabIndex = 18;
-            this.button3.Text = "3";
-            this.button3.UseVisualStyleBackColor = true;
-            // 
-            // button2
-            // 
-            this.button2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button2.Location = new System.Drawing.Point(99, 247);
-            this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(90, 55);
-            this.button2.TabIndex = 17;
-            this.button2.Text = "2";
-            this.button2.UseVisualStyleBackColor = true;
-            // 
-            // button1
-            // 
-            this.button1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button1.Location = new System.Drawing.Point(3, 247);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(90, 55);
-            this.button1.TabIndex = 16;
-            this.button1.Text = "1";
-            this.button1.UseVisualStyleBackColor = true;
-            // 
-            // buttonSubtract
-            // 
-            this.buttonSubtract.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonSubtract.Location = new System.Drawing.Point(291, 186);
-            this.buttonSubtract.Name = "buttonSubtract";
-            this.buttonSubtract.Size = new System.Drawing.Size(90, 55);
-            this.buttonSubtract.TabIndex = 15;
-            this.buttonSubtract.Text = "-";
-            this.buttonSubtract.UseVisualStyleBackColor = true;
-            // 
-            // button6
-            // 
-            this.button6.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button6.Location = new System.Drawing.Point(195, 186);
-            this.button6.Name = "button6";
-            this.button6.Size = new System.Drawing.Size(90, 55);
-            this.button6.TabIndex = 14;
-            this.button6.Text = "6";
-            this.button6.UseVisualStyleBackColor = true;
-            // 
-            // button5
-            // 
-            this.button5.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button5.Location = new System.Drawing.Point(99, 186);
-            this.button5.Name = "button5";
-            this.button5.Size = new System.Drawing.Size(90, 55);
-            this.button5.TabIndex = 13;
-            this.button5.Text = "5";
-            this.button5.UseVisualStyleBackColor = true;
-            // 
-            // button4
-            // 
-            this.button4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button4.Location = new System.Drawing.Point(3, 186);
-            this.button4.Name = "button4";
-            this.button4.Size = new System.Drawing.Size(90, 55);
-            this.button4.TabIndex = 12;
-            this.button4.Text = "4";
-            this.button4.UseVisualStyleBackColor = true;
-            // 
-            // buttonMultiply
-            // 
-            this.buttonMultiply.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonMultiply.Location = new System.Drawing.Point(291, 125);
-            this.buttonMultiply.Name = "buttonMultiply";
-            this.buttonMultiply.Size = new System.Drawing.Size(90, 55);
-            this.buttonMultiply.TabIndex = 11;
-            this.buttonMultiply.Text = "*";
-            this.buttonMultiply.UseVisualStyleBackColor = true;
-            // 
-            // button9
-            // 
-            this.button9.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button9.Location = new System.Drawing.Point(195, 125);
-            this.button9.Name = "button9";
-            this.button9.Size = new System.Drawing.Size(90, 55);
-            this.button9.TabIndex = 10;
-            this.button9.Text = "9";
-            this.button9.UseVisualStyleBackColor = true;
-            // 
-            // button8
-            // 
-            this.button8.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button8.Location = new System.Drawing.Point(99, 125);
-            this.button8.Name = "button8";
-            this.button8.Size = new System.Drawing.Size(90, 55);
-            this.button8.TabIndex = 9;
-            this.button8.Text = "8";
-            this.button8.UseVisualStyleBackColor = true;
-            // 
-            // button7
-            // 
-            this.button7.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.button7.Location = new System.Drawing.Point(3, 125);
-            this.button7.Name = "button7";
-            this.button7.Size = new System.Drawing.Size(90, 55);
-            this.button7.TabIndex = 8;
-            this.button7.Text = "7";
-            this.button7.UseVisualStyleBackColor = true;
-            // 
-            // buttonDivide
-            // 
-            this.buttonDivide.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonDivide.Location = new System.Drawing.Point(291, 64);
-            this.buttonDivide.Name = "buttonDivide";
-            this.buttonDivide.Size = new System.Drawing.Size(90, 55);
-            this.buttonDivide.TabIndex = 7;
-            this.buttonDivide.Text = "/";
-            this.buttonDivide.UseVisualStyleBackColor = true;
-            // 
-            // buttonBackspace
-            // 
-            this.buttonBackspace.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonBackspace.Location = new System.Drawing.Point(195, 64);
-            this.buttonBackspace.Name = "buttonBackspace";
-            this.buttonBackspace.Size = new System.Drawing.Size(90, 55);
-            this.buttonBackspace.TabIndex = 6;
-            this.buttonBackspace.Text = "←";
-            this.buttonBackspace.UseVisualStyleBackColor = true;
-            // 
-            // buttonC
-            // 
-            this.buttonC.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonC.Location = new System.Drawing.Point(99, 64);
-            this.buttonC.Name = "buttonC";
-            this.buttonC.Size = new System.Drawing.Size(90, 55);
-            this.buttonC.TabIndex = 5;
-            this.buttonC.Text = "C";
-            this.buttonC.UseVisualStyleBackColor = true;
-            // 
-            // buttonSqrt
-            // 
-            this.buttonSqrt.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonSqrt.Location = new System.Drawing.Point(3, 3);
-            this.buttonSqrt.Name = "buttonSqrt";
-            this.buttonSqrt.Size = new System.Drawing.Size(90, 55);
-            this.buttonSqrt.TabIndex = 24;
-            this.buttonSqrt.Text = "√";
-            this.buttonSqrt.UseVisualStyleBackColor = true;
-            // 
-            // buttonSquare
-            // 
-            this.buttonSquare.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonSquare.Location = new System.Drawing.Point(99, 3);
-            this.buttonSquare.Name = "buttonSquare";
-            this.buttonSquare.Size = new System.Drawing.Size(90, 55);
-            this.buttonSquare.TabIndex = 25;
-            this.buttonSquare.Text = "x²";
-            this.buttonSquare.UseVisualStyleBackColor = true;
-            // 
-            // buttonPower
-            // 
-            this.buttonPower.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonPower.Location = new System.Drawing.Point(195, 3);
-            this.buttonPower.Name = "buttonPower";
-            this.buttonPower.Size = new System.Drawing.Size(90, 55);
-            this.buttonPower.TabIndex = 26;
-            this.buttonPower.Text = "x^y";
-            this.buttonPower.UseVisualStyleBackColor = true;
-            // 
-            // buttonLog
-            // 
-            this.buttonLog.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonLog.Location = new System.Drawing.Point(291, 3);
-            this.buttonLog.Name = "buttonLog";
-            this.buttonLog.Size = new System.Drawing.Size(90, 55);
-            this.buttonLog.TabIndex = 27;
-            this.buttonLog.Text = "log";
-            this.buttonLog.UseVisualStyleBackColor = true;
-            // 
-            // buttonOpenParenthesis
-            // 
-            this.buttonOpenParenthesis.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonOpenParenthesis.Location = new System.Drawing.Point(3, 64);
-            this.buttonOpenParenthesis.Name = "buttonOpenParenthesis";
-            this.buttonOpenParenthesis.Size = new System.Drawing.Size(90, 55);
-            this.buttonOpenParenthesis.TabIndex = 28;
-            this.buttonOpenParenthesis.Text = "(";
-            this.buttonOpenParenthesis.UseVisualStyleBackColor = true;
-            // 
-            // buttonCloseParenthesis
-            // 
-            this.buttonCloseParenthesis.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonCloseParenthesis.Location = new System.Drawing.Point(99, 64);
-            this.buttonCloseParenthesis.Name = "buttonCloseParenthesis";
-            this.buttonCloseParenthesis.Size = new System.Drawing.Size(90, 55);
-            this.buttonCloseParenthesis.TabIndex = 29;
-            this.buttonCloseParenthesis.Text = ")";
-            this.buttonCloseParenthesis.UseVisualStyleBackColor = true;
-            // 
-            // notifyIcon
-            // 
-            this.notifyIcon.ContextMenuStrip = this.contextMenuStrip;
-            this.notifyIcon.Text = "NumLock Calculator";
-            this.notifyIcon.Visible = true;
+            historyListBox.ContextMenuStrip = contextMenuStrip;
+            historyListBox.Dock = DockStyle.Top;
+            historyListBox.DrawMode = DrawMode.OwnerDrawFixed;
+            historyListBox.FormattingEnabled = true;
+            historyListBox.ItemHeight = 30;
+            historyListBox.Location = new Point(0, 36);
+            historyListBox.Name = "historyListBox";
+            historyListBox.ScrollAlwaysVisible = true;
+            historyListBox.Size = new Size(384, 154);
+            historyListBox.TabIndex = 1;
+            historyListBox.DrawItem += historyListBox_DrawItem;
+            historyListBox.DoubleClick += historyListBox_DoubleClick;
             // 
             // contextMenuStrip
             // 
-            this.contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.showMenuItem,
-            this.exitMenuItem,
-            this.clearHistoryMenuItem});
-            this.contextMenuStrip.Name = "contextMenuStrip";
-            this.contextMenuStrip.Size = new System.Drawing.Size(161, 70);
+            contextMenuStrip.Items.AddRange(new ToolStripItem[] { showMenuItem, exitMenuItem, clearHistoryMenuItem });
+            contextMenuStrip.Name = "contextMenuStrip";
+            contextMenuStrip.Size = new Size(161, 70);
             // 
             // showMenuItem
             // 
-            this.showMenuItem.Name = "showMenuItem";
-            this.showMenuItem.Size = new System.Drawing.Size(160, 22);
-            this.showMenuItem.Text = "Show Calculator";
+            showMenuItem.Name = "showMenuItem";
+            showMenuItem.Size = new Size(160, 22);
+            showMenuItem.Text = "Show Calculator";
             // 
             // exitMenuItem
             // 
-            this.exitMenuItem.Name = "exitMenuItem";
-            this.exitMenuItem.Size = new System.Drawing.Size(160, 22);
-            this.exitMenuItem.Text = "Exit";
+            exitMenuItem.Name = "exitMenuItem";
+            exitMenuItem.Size = new Size(160, 22);
+            exitMenuItem.Text = "Exit";
             // 
             // clearHistoryMenuItem
             // 
-            this.clearHistoryMenuItem.Name = "clearHistoryMenuItem";
-            this.clearHistoryMenuItem.Size = new System.Drawing.Size(160, 22);
-            this.clearHistoryMenuItem.Text = "Clear History";
+            clearHistoryMenuItem.Name = "clearHistoryMenuItem";
+            clearHistoryMenuItem.Size = new Size(160, 22);
+            clearHistoryMenuItem.Text = "Clear History";
+            // 
+            // tableLayoutPanel
+            // 
+            tableLayoutPanel.ColumnCount = 4;
+            tableLayoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            tableLayoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            tableLayoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            tableLayoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            tableLayoutPanel.Controls.Add(buttonEquals, 3, 5);
+            tableLayoutPanel.Controls.Add(buttonDecimal, 2, 5);
+            tableLayoutPanel.Controls.Add(button0, 1, 5);
+            tableLayoutPanel.Controls.Add(buttonNegate, 0, 5);
+            tableLayoutPanel.Controls.Add(buttonAdd, 3, 4);
+            tableLayoutPanel.Controls.Add(button3, 2, 4);
+            tableLayoutPanel.Controls.Add(button2, 1, 4);
+            tableLayoutPanel.Controls.Add(button1, 0, 4);
+            tableLayoutPanel.Controls.Add(buttonSubtract, 3, 3);
+            tableLayoutPanel.Controls.Add(button6, 2, 3);
+            tableLayoutPanel.Controls.Add(button5, 1, 3);
+            tableLayoutPanel.Controls.Add(button4, 0, 3);
+            tableLayoutPanel.Controls.Add(buttonMultiply, 3, 2);
+            tableLayoutPanel.Controls.Add(button9, 2, 2);
+            tableLayoutPanel.Controls.Add(button8, 1, 2);
+            tableLayoutPanel.Controls.Add(button7, 0, 2);
+            tableLayoutPanel.Controls.Add(buttonDivide, 3, 1);
+            tableLayoutPanel.Controls.Add(buttonBackspace, 2, 1);
+            tableLayoutPanel.Controls.Add(buttonC, 1, 1);
+            tableLayoutPanel.Controls.Add(buttonOpenParenthesis, 0, 1);
+            tableLayoutPanel.Controls.Add(buttonCloseParenthesis, 1, 1);
+            tableLayoutPanel.Controls.Add(buttonSqrt, 0, 0);
+            tableLayoutPanel.Controls.Add(buttonSquare, 1, 0);
+            tableLayoutPanel.Controls.Add(buttonPower, 2, 0);
+            tableLayoutPanel.Controls.Add(buttonLog, 3, 0);
+            tableLayoutPanel.Dock = DockStyle.Fill;
+            tableLayoutPanel.Location = new Point(0, 190);
+            tableLayoutPanel.Name = "tableLayoutPanel";
+            tableLayoutPanel.RowCount = 6;
+            tableLayoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 9.473684F));
+            tableLayoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 12.1052628F));
+            tableLayoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 17.4825172F));
+            tableLayoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 17.8321686F));
+            tableLayoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 18.181818F));
+            tableLayoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 25.1748257F));
+            tableLayoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 116F));
+            tableLayoutPanel.Size = new Size(384, 404);
+            tableLayoutPanel.TabIndex = 2;
+            // 
+            // buttonEquals
+            // 
+            buttonEquals.Dock = DockStyle.Fill;
+            buttonEquals.Location = new Point(3, 289);
+            buttonEquals.Name = "buttonEquals";
+            buttonEquals.Size = new Size(90, 112);
+            buttonEquals.TabIndex = 23;
+            buttonEquals.Text = "=";
+            buttonEquals.UseVisualStyleBackColor = true;
+            // 
+            // buttonDecimal
+            // 
+            buttonDecimal.Dock = DockStyle.Fill;
+            buttonDecimal.Location = new Point(291, 217);
+            buttonDecimal.Name = "buttonDecimal";
+            buttonDecimal.Size = new Size(90, 66);
+            buttonDecimal.TabIndex = 22;
+            buttonDecimal.Text = ".";
+            buttonDecimal.UseVisualStyleBackColor = true;
+            // 
+            // button0
+            // 
+            button0.Dock = DockStyle.Fill;
+            button0.Location = new Point(195, 217);
+            button0.Name = "button0";
+            button0.Size = new Size(90, 66);
+            button0.TabIndex = 21;
+            button0.Text = "0";
+            button0.UseVisualStyleBackColor = true;
+            // 
+            // buttonNegate
+            // 
+            buttonNegate.Dock = DockStyle.Fill;
+            buttonNegate.Location = new Point(99, 217);
+            buttonNegate.Name = "buttonNegate";
+            buttonNegate.Size = new Size(90, 66);
+            buttonNegate.TabIndex = 20;
+            buttonNegate.Text = "+/-";
+            buttonNegate.UseVisualStyleBackColor = true;
+            // 
+            // buttonAdd
+            // 
+            buttonAdd.Dock = DockStyle.Fill;
+            buttonAdd.Location = new Point(3, 217);
+            buttonAdd.Name = "buttonAdd";
+            buttonAdd.Size = new Size(90, 66);
+            buttonAdd.TabIndex = 19;
+            buttonAdd.Text = "+";
+            buttonAdd.UseVisualStyleBackColor = true;
+            // 
+            // button3
+            // 
+            button3.Dock = DockStyle.Fill;
+            button3.Location = new Point(291, 165);
+            button3.Name = "button3";
+            button3.Size = new Size(90, 46);
+            button3.TabIndex = 18;
+            button3.Text = "3";
+            button3.UseVisualStyleBackColor = true;
+            // 
+            // button2
+            // 
+            button2.Dock = DockStyle.Fill;
+            button2.Location = new Point(195, 165);
+            button2.Name = "button2";
+            button2.Size = new Size(90, 46);
+            button2.TabIndex = 17;
+            button2.Text = "2";
+            button2.UseVisualStyleBackColor = true;
+            // 
+            // button1
+            // 
+            button1.Dock = DockStyle.Fill;
+            button1.Location = new Point(99, 165);
+            button1.Name = "button1";
+            button1.Size = new Size(90, 46);
+            button1.TabIndex = 16;
+            button1.Text = "1";
+            button1.UseVisualStyleBackColor = true;
+            // 
+            // buttonSubtract
+            // 
+            buttonSubtract.Dock = DockStyle.Fill;
+            buttonSubtract.Location = new Point(3, 165);
+            buttonSubtract.Name = "buttonSubtract";
+            buttonSubtract.Size = new Size(90, 46);
+            buttonSubtract.TabIndex = 15;
+            buttonSubtract.Text = "-";
+            buttonSubtract.UseVisualStyleBackColor = true;
+            // 
+            // button6
+            // 
+            button6.Dock = DockStyle.Fill;
+            button6.Location = new Point(291, 114);
+            button6.Name = "button6";
+            button6.Size = new Size(90, 45);
+            button6.TabIndex = 14;
+            button6.Text = "6";
+            button6.UseVisualStyleBackColor = true;
+            // 
+            // button5
+            // 
+            button5.Dock = DockStyle.Fill;
+            button5.Location = new Point(195, 114);
+            button5.Name = "button5";
+            button5.Size = new Size(90, 45);
+            button5.TabIndex = 13;
+            button5.Text = "5";
+            button5.UseVisualStyleBackColor = true;
+            // 
+            // button4
+            // 
+            button4.Dock = DockStyle.Fill;
+            button4.Location = new Point(99, 114);
+            button4.Name = "button4";
+            button4.Size = new Size(90, 45);
+            button4.TabIndex = 12;
+            button4.Text = "4";
+            button4.UseVisualStyleBackColor = true;
+            // 
+            // buttonMultiply
+            // 
+            buttonMultiply.Dock = DockStyle.Fill;
+            buttonMultiply.Location = new Point(3, 114);
+            buttonMultiply.Name = "buttonMultiply";
+            buttonMultiply.Size = new Size(90, 45);
+            buttonMultiply.TabIndex = 11;
+            buttonMultiply.Text = "*";
+            buttonMultiply.UseVisualStyleBackColor = true;
+            // 
+            // button9
+            // 
+            button9.Dock = DockStyle.Fill;
+            button9.Location = new Point(291, 64);
+            button9.Name = "button9";
+            button9.Size = new Size(90, 44);
+            button9.TabIndex = 10;
+            button9.Text = "9";
+            button9.UseVisualStyleBackColor = true;
+            // 
+            // button8
+            // 
+            button8.Dock = DockStyle.Fill;
+            button8.Location = new Point(195, 64);
+            button8.Name = "button8";
+            button8.Size = new Size(90, 44);
+            button8.TabIndex = 9;
+            button8.Text = "8";
+            button8.UseVisualStyleBackColor = true;
+            // 
+            // button7
+            // 
+            button7.Dock = DockStyle.Fill;
+            button7.Location = new Point(99, 64);
+            button7.Name = "button7";
+            button7.Size = new Size(90, 44);
+            button7.TabIndex = 8;
+            button7.Text = "7";
+            button7.UseVisualStyleBackColor = true;
+            // 
+            // buttonDivide
+            // 
+            buttonDivide.Dock = DockStyle.Fill;
+            buttonDivide.Location = new Point(3, 64);
+            buttonDivide.Name = "buttonDivide";
+            buttonDivide.Size = new Size(90, 44);
+            buttonDivide.TabIndex = 7;
+            buttonDivide.Text = "/";
+            buttonDivide.UseVisualStyleBackColor = true;
+            // 
+            // buttonBackspace
+            // 
+            buttonBackspace.Dock = DockStyle.Fill;
+            buttonBackspace.Location = new Point(291, 30);
+            buttonBackspace.Name = "buttonBackspace";
+            buttonBackspace.Size = new Size(90, 28);
+            buttonBackspace.TabIndex = 6;
+            buttonBackspace.Text = "←";
+            buttonBackspace.UseVisualStyleBackColor = true;
+            // 
+            // buttonC
+            // 
+            buttonC.Dock = DockStyle.Fill;
+            buttonC.Location = new Point(99, 30);
+            buttonC.Name = "buttonC";
+            buttonC.Size = new Size(90, 28);
+            buttonC.TabIndex = 5;
+            buttonC.Text = "C";
+            buttonC.UseVisualStyleBackColor = true;
+            // 
+            // buttonOpenParenthesis
+            // 
+            buttonOpenParenthesis.Dock = DockStyle.Fill;
+            buttonOpenParenthesis.Location = new Point(3, 30);
+            buttonOpenParenthesis.Name = "buttonOpenParenthesis";
+            buttonOpenParenthesis.Size = new Size(90, 28);
+            buttonOpenParenthesis.TabIndex = 28;
+            buttonOpenParenthesis.Text = "(";
+            buttonOpenParenthesis.UseVisualStyleBackColor = true;
+            // 
+            // buttonCloseParenthesis
+            // 
+            buttonCloseParenthesis.Dock = DockStyle.Fill;
+            buttonCloseParenthesis.Location = new Point(195, 30);
+            buttonCloseParenthesis.Name = "buttonCloseParenthesis";
+            buttonCloseParenthesis.Size = new Size(90, 28);
+            buttonCloseParenthesis.TabIndex = 29;
+            buttonCloseParenthesis.Text = ")";
+            buttonCloseParenthesis.UseVisualStyleBackColor = true;
+            // 
+            // buttonSqrt
+            // 
+            buttonSqrt.Dock = DockStyle.Fill;
+            buttonSqrt.Location = new Point(3, 3);
+            buttonSqrt.Name = "buttonSqrt";
+            buttonSqrt.Size = new Size(90, 21);
+            buttonSqrt.TabIndex = 24;
+            buttonSqrt.Text = "√";
+            buttonSqrt.UseVisualStyleBackColor = true;
+            // 
+            // buttonSquare
+            // 
+            buttonSquare.Dock = DockStyle.Fill;
+            buttonSquare.Location = new Point(99, 3);
+            buttonSquare.Name = "buttonSquare";
+            buttonSquare.Size = new Size(90, 21);
+            buttonSquare.TabIndex = 25;
+            buttonSquare.Text = "x²";
+            buttonSquare.UseVisualStyleBackColor = true;
+            // 
+            // buttonPower
+            // 
+            buttonPower.Dock = DockStyle.Fill;
+            buttonPower.Location = new Point(195, 3);
+            buttonPower.Name = "buttonPower";
+            buttonPower.Size = new Size(90, 21);
+            buttonPower.TabIndex = 26;
+            buttonPower.Text = "x^y";
+            buttonPower.UseVisualStyleBackColor = true;
+            // 
+            // buttonLog
+            // 
+            buttonLog.Dock = DockStyle.Fill;
+            buttonLog.Location = new Point(291, 3);
+            buttonLog.Name = "buttonLog";
+            buttonLog.Size = new Size(90, 21);
+            buttonLog.TabIndex = 27;
+            buttonLog.Text = "log";
+            buttonLog.UseVisualStyleBackColor = true;
+            // 
+            // notifyIcon
+            // 
+            notifyIcon.ContextMenuStrip = contextMenuStrip;
+            notifyIcon.Text = "NumLock Calculator";
+            notifyIcon.Visible = true;
             // 
             // numLockTimer
             // 
-            this.numLockTimer.Interval = 500;
+            numLockTimer.Interval = 500;
             // 
             // CalculatorForm
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(384, 561);
-            this.Controls.Add(this.tableLayoutPanel);
-            this.Controls.Add(this.historyListBox);
-            this.Controls.Add(this.displayTextBox);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-            this.KeyPreview = true;
-            this.MaximizeBox = false;
-            this.Name = "CalculatorForm";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Calculator";
-            this.tableLayoutPanel.ResumeLayout(false);
-            this.contextMenuStrip.ResumeLayout(false);
-            this.ResumeLayout(false);
-            this.PerformLayout();
+            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(384, 594);
+            Controls.Add(tableLayoutPanel);
+            Controls.Add(historyListBox);
+            Controls.Add(displayTextBox);
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            KeyPreview = true;
+            MaximizeBox = false;
+            Name = "CalculatorForm";
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "Calculator";
+            contextMenuStrip.ResumeLayout(false);
+            tableLayoutPanel.ResumeLayout(false);
+            ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
