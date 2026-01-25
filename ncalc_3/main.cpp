@@ -4,11 +4,21 @@
 #include <algorithm>
 #include <commctrl.h>
 #include <fstream>
+#include <shlobj.h> // For SHGetFolderPath
 
 #include "tinyexpr.h"
 
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_HOTKEY_NUMLOCK 1
+
+// Global variables
+HINSTANCE hInst;
+HWND hWnd;
+HWND hInput;
+HWND hHistory;
+NOTIFYICONDATA nid;
+HHOOK hKeyboardHook;
+std::string historyFilePath;
 
 // Log function that appends msg to file c:\tmp\clog.txt
 void log(const std::string& msg) {
@@ -24,14 +34,46 @@ void log(const std::string& msg) {
     }
 }
 
-// Global variables
-HINSTANCE hInst;
-HWND hWnd;
-HWND hInput;
-HWND hHistory;
-NOTIFYICONDATA nid;
-HHOOK hKeyboardHook;
+// Function to get the directory of the executable
+std::string getExecutableDirectory() {
+    char path[MAX_PATH];
+    GetModuleFileName(NULL, path, MAX_PATH);
+    std::string s(path);
+    return s.substr(0, s.find_last_of("\\/"));
+}
 
+// Load history from file
+void loadHistory() {
+    std::ifstream infile(historyFilePath);
+    if (infile.is_open()) {
+        std::string line;
+        // Read lines in reverse to add them to the top of the listbox
+        std::vector<std::string> lines;
+        while (std::getline(infile, line)) {
+            lines.push_back(line);
+        }
+        infile.close();
+        for (int i = lines.size() - 1; i >= 0; --i) {
+            SendMessage(hHistory, LB_INSERTSTRING, 0, (LPARAM)lines[i].c_str());
+        }
+    }
+}
+
+// Add to history
+void addToHistory(const std::string& expression, const std::string& result) {
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    char buffer[256];
+    wsprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d: %s = %s", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, expression.c_str(), result.c_str());
+    SendMessage(hHistory, LB_INSERTSTRING, 0, (LPARAM)buffer);
+
+    // Also write to history file
+    std::ofstream outfile(historyFilePath, std::ios_base::app);
+    if (outfile.is_open()) {
+        outfile << buffer << std::endl;
+        outfile.close();
+    }
+}
 
 std::string eval(const std::string& exp)
 {
@@ -51,15 +93,6 @@ std::pair<std::string, std::string> evaluateExpression(const std::string& expres
     // It currently returns a fixed value.
     std::string val = eval(expression_s);
     return {"", val};
-}
-
-// Add to history
-void addToHistory(const std::string& expression, const std::string& result) {
-    SYSTEMTIME st;
-    GetLocalTime(&st);
-    char buffer[256];
-    wsprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d: %s = %s", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, expression.c_str(), result.c_str());
-    SendMessage(hHistory, LB_INSERTSTRING, 0, (LPARAM)buffer);
 }
 
 void setInputText(const std::string& text) {
@@ -141,6 +174,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     log("Application started");
     hInst = hInstance;
 
+    // Initialize history file path
+    historyFilePath = getExecutableDirectory() + "\\history.txt";
+
     WNDCLASSEX wcex;
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.style = CS_HREDRAW | CS_VREDRAW;
@@ -182,6 +218,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // Create UI elements
     hInput = CreateWindow("EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT, 10, 10, 360, 25, hWnd, (HMENU)100, hInst, NULL);
     hHistory = CreateWindow("LISTBOX", "", WS_CHILD | WS_VISIBLE | WS_BORDER | LBS_NOTIFY, 10, 40, 360, 100, hWnd, (HMENU)101, hInst, NULL);
+
+    // Load history after creating the listbox
+    loadHistory();
 
     // Buttons
     int buttonId = 200;
