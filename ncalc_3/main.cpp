@@ -49,13 +49,14 @@ void loadHistory() {
     std::ifstream infile(historyFilePath);
     if (infile.is_open()) {
         std::string line;
-        // Read lines in reverse to add them to the top of the listbox
         std::vector<std::string> lines;
         while (std::getline(infile, line)) {
             lines.push_back(line);
         }
         infile.close();
-        for (int i = lines.size() - 1; i >= 0; --i) {
+        // Insert lines into the listbox in reverse order of reading, but at index 0
+        // This will result in the newest entry (last in file) being at the top of the listbox
+        for (int i = 0; i < lines.size(); ++i) {
             SendMessage(hHistory, LB_INSERTSTRING, 0, (LPARAM)lines[i].c_str());
         }
     }
