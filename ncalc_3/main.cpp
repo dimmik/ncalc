@@ -12,6 +12,8 @@
 
 // Log function that appends msg to file c:\tmp\clog.txt
 void log(const std::string& msg) {
+    return;
+    // keep for debug prpss
     std::ofstream logfile("c:\\tmp\\clog.txt", std::ios_base::app);
     if (logfile.is_open()) {
         SYSTEMTIME st;
