@@ -19,6 +19,8 @@ HWND hHistory;
 NOTIFYICONDATA nid;
 HHOOK hKeyboardHook;
 std::string historyFilePath;
+HFONT hNormalFont;
+HFONT hSmallBoldFont;
 
 // Log function that appends msg to file c:\tmp\clog.txt
 void log(const std::string& msg) {
@@ -198,6 +200,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return FALSE;
     }
 
+    // Create fonts
+    LOGFONT lf;
+    GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(LOGFONT), &lf);
+    hNormalFont = CreateFont(lf.lfHeight, lf.lfWidth, lf.lfEscapement, lf.lfOrientation, lf.lfWeight,
+                             lf.lfItalic, lf.lfUnderline, lf.lfStrikeOut, lf.lfCharSet,
+                             lf.lfOutPrecision, lf.lfClipPrecision, lf.lfQuality,
+                             lf.lfPitchAndFamily, lf.lfFaceName);
+
+    lf.lfHeight = (lf.lfHeight * 3) / 4; // Make it 3/4 of the normal size
+    lf.lfWeight = FW_BOLD;
+    hSmallBoldFont = CreateFont(lf.lfHeight, lf.lfWidth, lf.lfEscapement, lf.lfOrientation, lf.lfWeight,
+                                lf.lfItalic, lf.lfUnderline, lf.lfStrikeOut, lf.lfCharSet,
+                                lf.lfOutPrecision, lf.lfClipPrecision, lf.lfQuality,
+                                lf.lfPitchAndFamily, lf.lfFaceName);
+
     // Minimization to tray
     nid.cbSize = sizeof(NOTIFYICONDATA);
     nid.hWnd = hWnd;
@@ -217,7 +234,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Create UI elements
     hInput = CreateWindow("EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT, 10, 10, 360, 25, hWnd, (HMENU)100, hInst, NULL);
-    hHistory = CreateWindow("LISTBOX", "", WS_CHILD | WS_VISIBLE | WS_BORDER | LBS_NOTIFY, 10, 40, 360, 100, hWnd, (HMENU)101, hInst, NULL);
+    hHistory = CreateWindow("LISTBOX", "", WS_CHILD | WS_VISIBLE | WS_BORDER | LBS_NOTIFY | LBS_OWNERDRAWFIXED | LBS_HASSTRINGS, 10, 40, 360, 100, hWnd, (HMENU)101, hInst, NULL);
 
     // Load history after creating the listbox
     loadHistory();
@@ -306,6 +323,86 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         break;
     }
+    case WM_MEASUREITEM: {
+        LPMEASUREITEMSTRUCT lpmis = (LPMEASUREITEMSTRUCT)lParam;
+        if (lpmis->CtlID == 101) { // hHistory listbox
+            HDC hdc = GetDC(hWnd);
+            
+            // Get text metrics for normal font
+            HFONT oldFont = (HFONT)SelectObject(hdc, hNormalFont);
+            TEXTMETRIC tmNormal;
+            GetTextMetrics(hdc, &tmNormal);
+            int normalFontHeight = tmNormal.tmHeight + tmNormal.tmExternalLeading;
+            
+            // Get text metrics for small bold font
+            SelectObject(hdc, hSmallBoldFont);
+            TEXTMETRIC tmSmallBold;
+            GetTextMetrics(hdc, &tmSmallBold);
+            int smallBoldFontHeight = tmSmallBold.tmHeight + tmSmallBold.tmExternalLeading;
+            
+            // Use the maximum of the two heights
+            lpmis->itemHeight = std::max(normalFontHeight, smallBoldFontHeight);
+            
+            SelectObject(hdc, oldFont); // Restore original font
+            ReleaseDC(hWnd, hdc);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_DRAWITEM: {
+        LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lParam;
+        if (dis->CtlID == 101) { // hHistory listbox
+            if (dis->itemID == -1) { // Empty item
+                return TRUE;
+            }
+
+            char buffer[512];
+            SendMessage(dis->hwndItem, LB_GETTEXT, dis->itemID, (LPARAM)buffer);
+            std::string itemText(buffer);
+
+            // Determine colors
+            COLORREF textColor = (dis->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHTTEXT) : GetSysColor(COLOR_WINDOWTEXT);
+            COLORREF backgroundColor = (dis->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHT) : GetSysColor(COLOR_WINDOW);
+
+            SetBkColor(dis->hDC, backgroundColor);
+            SetTextColor(dis->hDC, textColor);
+            FillRect(dis->hDC, &dis->rcItem, CreateSolidBrush(backgroundColor));
+
+            // Parse the string
+            size_t eq_pos = itemText.find(" = ");
+            std::string datetime_part;
+            std::string expression_result_part;
+
+            if (eq_pos != std::string::npos) {
+                datetime_part = itemText.substr(0, eq_pos);
+                expression_result_part = itemText.substr(eq_pos);
+            } else {
+                expression_result_part = itemText; // Fallback if " = " not found
+            }
+
+            // Draw datetime part with small bold font
+            HFONT oldFont = (HFONT)SelectObject(dis->hDC, hSmallBoldFont);
+            DrawText(dis->hDC, datetime_part.c_str(), -1, &dis->rcItem, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOCLIP);
+
+            // Calculate position for expression/result part
+            RECT textRect = dis->rcItem;
+            SIZE datetimeSize;
+            GetTextExtentPoint32(dis->hDC, datetime_part.c_str(), datetime_part.length(), &datetimeSize);
+            textRect.left += datetimeSize.cx;
+
+            // Draw expression/result part with normal font
+            SelectObject(dis->hDC, hNormalFont);
+            DrawText(dis->hDC, expression_result_part.c_str(), -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOCLIP);
+
+            SelectObject(dis->hDC, oldFont); // Restore original font
+
+            if (dis->itemState & ODS_FOCUS) {
+                DrawFocusRect(dis->hDC, &dis->rcItem);
+            }
+            return TRUE;
+        }
+        break;
+    }
     case WM_TIMER:
         // Numlock always on control
         setNumlock(TRUE);
@@ -339,6 +436,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         UnhookWindowsHookEx(hKeyboardHook);
         Shell_NotifyIcon(NIM_DELETE, &nid);
         UnregisterHotKey(hWnd, ID_HOTKEY_NUMLOCK);
+        DeleteObject(hNormalFont);
+        DeleteObject(hSmallBoldFont);
         PostQuitMessage(0);
         break;
     default:
