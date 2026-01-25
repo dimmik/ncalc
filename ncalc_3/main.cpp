@@ -19,8 +19,8 @@ HWND hHistory;
 NOTIFYICONDATA nid;
 HHOOK hKeyboardHook;
 std::string historyFilePath;
-HFONT hNormalFont;
-HFONT hSmallBoldFont;
+HFONT hNormalFont = NULL;
+HFONT hSmallBoldFont = NULL;
 
 // Log function that appends msg to file c:\tmp\clog.txt
 void log(const std::string& msg) {
@@ -200,21 +200,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return FALSE;
     }
 
-    // Create fonts
-    LOGFONT lf;
-    GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(LOGFONT), &lf);
-    hNormalFont = CreateFont(lf.lfHeight, lf.lfWidth, lf.lfEscapement, lf.lfOrientation, lf.lfWeight,
-                             lf.lfItalic, lf.lfUnderline, lf.lfStrikeOut, lf.lfCharSet,
-                             lf.lfOutPrecision, lf.lfClipPrecision, lf.lfQuality,
-                             lf.lfPitchAndFamily, lf.lfFaceName);
-
-    lf.lfHeight = (lf.lfHeight * 3) / 4; // Make it 3/4 of the normal size
-    lf.lfWeight = FW_BOLD;
-    hSmallBoldFont = CreateFont(lf.lfHeight, lf.lfWidth, lf.lfEscapement, lf.lfOrientation, lf.lfWeight,
-                                lf.lfItalic, lf.lfUnderline, lf.lfStrikeOut, lf.lfCharSet,
-                                lf.lfOutPrecision, lf.lfClipPrecision, lf.lfQuality,
-                                lf.lfPitchAndFamily, lf.lfFaceName);
-
     // Minimization to tray
     nid.cbSize = sizeof(NOTIFYICONDATA);
     nid.hWnd = hWnd;
@@ -380,19 +365,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 expression_result_part = itemText; // Fallback if " = " not found
             }
 
+            // Get font metrics to calculate vertical centering
+            TEXTMETRIC tmNormal;
+            HFONT oldFont = (HFONT)SelectObject(dis->hDC, hNormalFont);
+            GetTextMetrics(dis->hDC, &tmNormal);
+            SelectObject(dis->hDC, hSmallBoldFont);
+            TEXTMETRIC tmSmallBold;
+            GetTextMetrics(dis->hDC, &tmSmallBold);
+            SelectObject(dis->hDC, oldFont); // Restore original font
+
+            int maxFontHeight = std::max(tmNormal.tmHeight + tmNormal.tmExternalLeading, tmSmallBold.tmHeight + tmSmallBold.tmExternalLeading);
+            int y_offset = dis->rcItem.top + (dis->rcItem.bottom - dis->rcItem.top - maxFontHeight) / 2;
+            if (y_offset < dis->rcItem.top) y_offset = dis->rcItem.top; // Ensure it doesn't go above the item top
+
             // Draw datetime part with small bold font
-            HFONT oldFont = (HFONT)SelectObject(dis->hDC, hSmallBoldFont);
-            DrawText(dis->hDC, datetime_part.c_str(), -1, &dis->rcItem, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOCLIP);
+            oldFont = (HFONT)SelectObject(dis->hDC, hSmallBoldFont);
+            RECT datetimeRect = {dis->rcItem.left, y_offset, dis->rcItem.right, dis->rcItem.bottom};
+            DrawText(dis->hDC, datetime_part.c_str(), -1, &datetimeRect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP);
 
             // Calculate position for expression/result part
-            RECT textRect = dis->rcItem;
             SIZE datetimeSize;
             GetTextExtentPoint32(dis->hDC, datetime_part.c_str(), datetime_part.length(), &datetimeSize);
-            textRect.left += datetimeSize.cx;
+            int x_offset = dis->rcItem.left + datetimeSize.cx;
 
             // Draw expression/result part with normal font
             SelectObject(dis->hDC, hNormalFont);
-            DrawText(dis->hDC, expression_result_part.c_str(), -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOCLIP);
+            RECT exprRect = {x_offset, y_offset, dis->rcItem.right, dis->rcItem.bottom};
+            DrawText(dis->hDC, expression_result_part.c_str(), -1, &exprRect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP);
 
             SelectObject(dis->hDC, oldFont); // Restore original font
 
@@ -440,6 +439,120 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         DeleteObject(hSmallBoldFont);
         PostQuitMessage(0);
         break;
+    case WM_SIZE: {
+        // Get the new width and height of the client area
+        int newWidth = LOWORD(lParam);
+        int newHeight = HIWORD(lParam);
+
+        // Delete old fonts if they exist
+        if (hNormalFont) DeleteObject(hNormalFont);
+        if (hSmallBoldFont) DeleteObject(hSmallBoldFont);
+
+        // Create new fonts based on window height
+        LOGFONT lf;
+        GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(LOGFONT), &lf);
+        
+        // Base font sizes for a window height of 500 pixels
+        int baseNormalFontSize = 18;
+        int baseSmallBoldFontSize = 14;
+        int initialWindowHeight = 500; // The initial height of the window
+
+        // Calculate scaled font heights
+        int scaledNormalHeight = -MulDiv(baseNormalFontSize, newHeight, initialWindowHeight);
+        int scaledSmallBoldHeight = -MulDiv(baseSmallBoldFontSize, newHeight, initialWindowHeight);
+
+        // Apply reasonable min/max limits
+        if (scaledNormalHeight > -10) scaledNormalHeight = -10; // Min 10pt
+        if (scaledNormalHeight < -36) scaledNormalHeight = -36; // Max 36pt
+
+        if (scaledSmallBoldHeight > -8) scaledSmallBoldHeight = -8; // Min 8pt
+        if (scaledSmallBoldHeight < -28) scaledSmallBoldHeight = -28; // Max 28pt
+
+        lf.lfHeight = scaledNormalHeight;
+        hNormalFont = CreateFont(lf.lfHeight, lf.lfWidth, lf.lfEscapement, lf.lfOrientation, lf.lfWeight,
+                                 lf.lfItalic, lf.lfUnderline, lf.lfStrikeOut, lf.lfCharSet,
+                                 lf.lfOutPrecision, lf.lfClipPrecision, lf.lfQuality,
+                                 lf.lfPitchAndFamily, lf.lfFaceName);
+
+        lf.lfHeight = scaledSmallBoldHeight;
+        lf.lfWeight = FW_BOLD;
+        hSmallBoldFont = CreateFont(lf.lfHeight, lf.lfWidth, lf.lfEscapement, lf.lfOrientation, lf.lfWeight,
+                                    lf.lfItalic, lf.lfUnderline, lf.lfStrikeOut, lf.lfCharSet,
+                                    lf.lfOutPrecision, lf.lfClipPrecision, lf.lfQuality,
+                                    lf.lfPitchAndFamily, lf.lfFaceName);
+
+        // Apply normal font to hInput
+        SendMessage(hInput, WM_SETFONT, (WPARAM)hNormalFont, TRUE);
+
+        // Calculate scaled padding
+        initialWindowHeight = 500; // Use the same initial height as for fonts
+        int baseButtonPadding = 10;
+        int scaledButtonPadding = MulDiv(baseButtonPadding, newHeight, initialWindowHeight);
+        if (scaledButtonPadding < 5) scaledButtonPadding = 5; // Minimum padding
+        if (scaledButtonPadding > 20) scaledButtonPadding = 20; // Maximum padding
+
+        // Resize hInput
+        MoveWindow(hInput, scaledButtonPadding, scaledButtonPadding, newWidth - 2 * scaledButtonPadding, scaledNormalHeight * -1 + scaledButtonPadding, TRUE); // Use scaled font height for input height
+
+        // Resize hHistory
+        int historyTop = scaledButtonPadding + (scaledNormalHeight * -1 + scaledButtonPadding) + scaledButtonPadding; // Below input + padding
+        int minHistoryHeight = 50; // Minimum height for history
+        
+        // Calculate remaining height for buttons
+        int numRows = 6;
+        int numCols = 4;
+        int estimatedButtonHeight = (scaledNormalHeight * -1) + scaledButtonPadding; // Estimate button height based on font
+        int totalButtonAreaHeight = numRows * estimatedButtonHeight + (numRows + 1) * scaledButtonPadding;
+
+        int historyHeight = newHeight - historyTop - totalButtonAreaHeight - scaledButtonPadding;
+        if (historyHeight < minHistoryHeight) historyHeight = minHistoryHeight;
+
+        MoveWindow(hHistory, scaledButtonPadding, historyTop, newWidth - 2 * scaledButtonPadding, historyHeight, TRUE);
+        // Calculate new item height for the listbox
+        HDC hdc = GetDC(hWnd);
+        HFONT oldFont = (HFONT)SelectObject(hdc, hNormalFont);
+        TEXTMETRIC tmNormal;
+        GetTextMetrics(hdc, &tmNormal);
+        int normalFontHeight = tmNormal.tmHeight + tmNormal.tmExternalLeading;
+        
+        SelectObject(hdc, hSmallBoldFont);
+        TEXTMETRIC tmSmallBold;
+        GetTextMetrics(hdc, &tmSmallBold);
+        int smallBoldFontHeight = tmSmallBold.tmHeight + tmSmallBold.tmExternalLeading;
+        
+        int newCalculatedItemHeight = std::max(normalFontHeight, smallBoldFontHeight);
+        SelectObject(hdc, oldFont);
+        ReleaseDC(hWnd, hdc);
+
+        // Update the listbox item height
+        SendMessage(hHistory, LB_SETITEMHEIGHT, 0, newCalculatedItemHeight);
+        InvalidateRect(hHistory, NULL, TRUE); // Force redraw with new fonts and item height
+
+        // Reposition and resize buttons
+        int buttonId = 200;
+        int startY = historyTop + historyHeight + scaledButtonPadding;
+
+        int totalButtonWidth = newWidth - (numCols + 1) * scaledButtonPadding;
+        int buttonWidth = totalButtonWidth / numCols;
+        int totalButtonHeight = newHeight - startY - scaledButtonPadding;
+        int buttonHeight = totalButtonHeight / numRows;
+
+        for (int i = 0; i < numRows; ++i) {
+            for (int j = 0; j < numCols; ++j) {
+                HWND hButton = GetDlgItem(hWnd, buttonId + (i * numCols + j));
+                if (hButton) {
+                    SendMessage(hButton, WM_SETFONT, (WPARAM)hNormalFont, TRUE); // Apply font to button
+                    MoveWindow(hButton, 
+                               scaledButtonPadding + j * (buttonWidth + scaledButtonPadding), 
+                               startY + i * (buttonHeight + scaledButtonPadding), 
+                               buttonWidth, 
+                               buttonHeight, 
+                               TRUE);
+                }
+            }
+        }
+        break;
+    }
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
