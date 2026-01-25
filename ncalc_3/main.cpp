@@ -5,7 +5,7 @@
 #include <commctrl.h>
 #include <fstream>
 
-#include "exprtk.hpp"
+#include "tinyexpr.h"
 
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_HOTKEY_NUMLOCK 1
@@ -30,11 +30,20 @@ HWND hHistory;
 NOTIFYICONDATA nid;
 HHOOK hKeyboardHook;
 
+
+std::string eval(const std::string& exp)
+{
+   double r = te_interp(exp.c_str(), 0);
+   std::string val = std::to_string(r);
+   return val;
+}
+
 // Evaluation function wireframe
-std::pair<std::string, std::string> evaluateExpression(const std::string& expression) {
+std::pair<std::string, std::string> evaluateExpression(const std::string& expression_s) {
     // This is a wireframe for the evaluation function.
     // It currently returns a fixed value.
-    return {"", "-42"};
+    std::string val = eval(expression_s);
+    return {"", val};
 }
 
 // Add to history

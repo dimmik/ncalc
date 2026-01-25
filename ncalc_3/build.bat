@@ -1,1 +1,1 @@
-g++ main.cpp -o calculator.exe -lcomctl32 -mwindows
+g++ main.cpp -x c tinyexpr.c -o calculator.exe -lcomctl32 -mwindows
