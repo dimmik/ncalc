@@ -54,6 +54,13 @@ void addToHistory(const std::string& expression, const std::string& result) {
     wsprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d: %s = %s", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, expression.c_str(), result.c_str());
     SendMessage(hHistory, LB_INSERTSTRING, 0, (LPARAM)buffer);
 }
+
+void setInputText(const std::string& text) {
+    SetWindowText(hInput, text.c_str());
+    SendMessage(hInput, EM_SETSEL, text.length(), text.length());
+    SetFocus(hInput);
+}
+
 // flag indicating that this is not real numlock press
 int itIsEnsureNumLockKeypress = 0;
 // Numlock always on control
@@ -110,7 +117,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             // evaluation - where it is called
             auto result = evaluateExpression(currentText);
             if (result.first.empty()) {
-                SetWindowText(hInput, result.second.c_str());
+                setInputText(result.second);
                 addToHistory(currentText, result.second);
             } else {
                 MessageBox(hWnd, result.first.c_str(), "Error", MB_OK | MB_ICONERROR);
@@ -185,7 +192,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         for (int j = 0; j < 4; ++j) {
             CreateWindow("BUTTON", buttons[i * 4 + j], 
             WS_CHILD | WS_VISIBLE, x + j * 90, y + i * 50, 80, 40, 
-            hWnd, (HMENU)(buttonId++), hInst, NULL);
+            hWnd, (HMENU)(UINT_PTR)(buttonId++), hInst, NULL);
         }
     }
     
@@ -229,15 +236,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 // evaluation - where it is called
                 auto result = evaluateExpression(currentText);
                 if (result.first.empty()) {
-                    SetWindowText(hInput, result.second.c_str());
+                    setInputText(result.second);
                     addToHistory(currentText, result.second);
                 } else {
                     MessageBox(hWnd, result.first.c_str(), "Error", MB_OK | MB_ICONERROR);
                 }
             } else if (strcmp(buttonText, "C") == 0) {
-                SetWindowText(hInput, "");
+                setInputText("");
             } else {
-                SetWindowText(hInput, (currentText + buttonText).c_str());
+                setInputText(currentText + buttonText);
             }
         } else if (HIWORD(wParam) == LBN_DBLCLK) {
             int selected = SendMessage(hHistory, LB_GETCURSEL, 0, 0);
@@ -247,7 +254,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 std::string historyLine(buffer);
                 size_t pos = historyLine.find(" = ");
                 if (pos != std::string::npos) {
-                    SetWindowText(hInput, historyLine.substr(pos + 3).c_str());
+                    setInputText(historyLine.substr(pos + 3));
                 }
             }
         }
