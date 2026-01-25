@@ -5,6 +5,8 @@
 #include <commctrl.h>
 #include <fstream>
 
+#include "exprtk.hpp"
+
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_HOTKEY_NUMLOCK 1
 
@@ -155,7 +157,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
     // Create UI elements
-    hInput = CreateWindow("EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_RIGHT, 10, 10, 360, 25, hWnd, (HMENU)100, hInst, NULL);
+    hInput = CreateWindow("EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT, 10, 10, 360, 25, hWnd, (HMENU)100, hInst, NULL);
     hHistory = CreateWindow("LISTBOX", "", WS_CHILD | WS_VISIBLE | WS_BORDER | LBS_NOTIFY, 10, 40, 360, 100, hWnd, (HMENU)101, hInst, NULL);
 
     // Buttons
@@ -198,6 +200,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
+    case WM_SHOWWINDOW:
+        if (wParam) { // Window is being shown
+            SetFocus(hInput);
+            int textLen = GetWindowTextLength(hInput);
+            SendMessage(hInput, EM_SETSEL, textLen, textLen);
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_COMMAND: {
         int wmId = LOWORD(wParam);
         if (wmId >= 200) { // Button clicks
