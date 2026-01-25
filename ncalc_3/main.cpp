@@ -34,7 +34,12 @@ HHOOK hKeyboardHook;
 std::string eval(const std::string& exp)
 {
    double r = te_interp(exp.c_str(), 0);
-   std::string val = std::to_string(r);
+   //std::string val = std::to_string(r);
+   //std::string val = std::format("{:.2f}", r); c++ 20+
+   
+   char buffer[256];
+   snprintf(buffer, sizeof(buffer), "%.4f", r);
+   std::string val(buffer);
    return val;
 }
 
