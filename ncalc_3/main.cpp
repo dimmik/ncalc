@@ -22,19 +22,7 @@ std::string historyFilePath;
 HFONT hNormalFont = NULL;
 HFONT hSmallBoldFont = NULL;
 
-// Log function that appends msg to file c:\tmp\clog.txt
-void log(const std::string& msg) {
-    return;
-    // keep for debug prpss
-    std::ofstream logfile("c:\\tmp\\clog.txt", std::ios_base::app);
-    if (logfile.is_open()) {
-        SYSTEMTIME st;
-        GetLocalTime(&st);
-        char buffer[128];
-        wsprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d: ", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
-        logfile << buffer << msg << std::endl;
-    }
-}
+
 
 // Function to get the directory of the executable
 std::string getExecutableDirectory() {
@@ -110,20 +98,20 @@ int itIsEnsureNumLockKeypress = 0;
 DWORD WINAPI setNumlockThread(LPVOID lpParameter)
 {
     BOOL bState = (BOOL)(uintptr_t)lpParameter;
-    log("Check numlock");
+    
     BYTE keyState[256];
     Sleep(200); // Pause for 100 milliseconds
-    log("Slept 200 ms");
+    
     GetKeyboardState((LPBYTE)&keyState);
     if ((bState && !(keyState[VK_NUMLOCK] & 1)) ||
         (!bState && (keyState[VK_NUMLOCK] & 1)))
     {
-        log("check: need to send emulating numlock");
+        
         itIsEnsureNumLockKeypress = 1;
         keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | 0, 0);
         keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
     } else {
-        log("check: Numlock is already on");
+        
     }
     return 0;
 }
@@ -143,13 +131,13 @@ void ShowWindowFromTray() {
     std::string currentText(GetWindowTextLength(hInput) + 1, '\0');
     GetWindowText(hInput, &currentText[0], currentText.size());
     setInputText(currentText);
-    log("Show from tray: Set numlock true");
+    
     setNumlock(TRUE);
 }
 
 void MinimizeToTray() {
     ShowWindow(hWnd, SW_HIDE);
-    log("Go to tray: Set numlock true");
+    
     setNumlock(TRUE);
 }
 
@@ -177,7 +165,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    log("Application started");
+    
     hInst = hInstance;
 
     // Initialize history file path
