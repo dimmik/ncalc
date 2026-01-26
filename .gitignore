@@ -7,3 +7,4 @@ packages/
 **/.vscode/**
 
 *.exe
+ncalc_3/history.txt
