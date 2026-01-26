@@ -113,7 +113,7 @@ DWORD WINAPI setNumlockThread(LPVOID lpParameter)
     log("Check numlock");
     BYTE keyState[256];
     Sleep(200); // Pause for 100 milliseconds
-    log("Slept 1000 ms");
+    log("Slept 200 ms");
     GetKeyboardState((LPBYTE)&keyState);
     if ((bState && !(keyState[VK_NUMLOCK] & 1)) ||
         (!bState && (keyState[VK_NUMLOCK] & 1)))
