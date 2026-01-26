@@ -10,6 +10,8 @@
 
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_HOTKEY_NUMLOCK 1
+#define IDM_OPEN 1001 // New define
+#define IDM_EXIT 1002 // New define
 
 // Global variables
 HINSTANCE hInst;
@@ -21,6 +23,7 @@ HHOOK hKeyboardHook;
 std::string historyFilePath;
 HFONT hNormalFont = NULL;
 HFONT hSmallBoldFont = NULL;
+std::string iconFilePath; // New global variable for icon path
 
 // Log function that appends msg to file c:\tmp\clog.txt
 void log(const std::string& msg) {
@@ -182,6 +185,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Initialize history file path
     historyFilePath = getExecutableDirectory() + "\\history.txt";
+    iconFilePath = getExecutableDirectory() + "\\calculator.ico"; // Initialize icon file path
 
     WNDCLASSEX wcex;
     wcex.cbSize = sizeof(WNDCLASSEX);
@@ -190,12 +194,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = 0;
     wcex.hInstance = hInstance;
-    wcex.hIcon = LoadIcon(hInstance, "calculator.ico");
+    wcex.hIcon = (HICON)LoadImage(NULL, iconFilePath.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
     wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.lpszMenuName = NULL;
     wcex.lpszClassName = "CalculatorClass";
-    wcex.hIconSm = LoadIcon(wcex.hInstance, "calculator.ico");
+    wcex.hIconSm = (HICON)LoadImage(NULL, iconFilePath.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
     RegisterClassEx(&wcex);
 
     hWnd = CreateWindow("CalculatorClass", "Calculator", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 400, 500, NULL, NULL, hInstance, NULL);
@@ -210,7 +214,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     nid.uID = 100;
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_TRAYICON;
-    nid.hIcon = LoadIcon(hInst, "calculator.ico");
+    nid.hIcon = (HICON)LoadImage(NULL, iconFilePath.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
     lstrcpy(nid.szTip, "Calculator");
     Shell_NotifyIcon(NIM_ADD, &nid);
 
@@ -277,38 +281,49 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_COMMAND: {
         int wmId = LOWORD(wParam);
-        if (wmId >= 200) { // Button clicks
-            char buttonText[10];
-            GetDlgItemText(hWnd, wmId, buttonText, 10);
-            std::string currentText(GetWindowTextLength(hInput) + 1, '\0');
-            GetWindowText(hInput, &currentText[0], currentText.size());
-            currentText.pop_back(); // remove null terminator
+        switch (wmId) {
+            case IDM_OPEN:
+                ShowWindowFromTray();
+                break;
+            case IDM_EXIT:
+                DestroyWindow(hWnd);
+                break;
+            default:
+                // Handle existing button clicks and listbox double clicks
+                if (wmId >= 200) { // Button clicks
+                    char buttonText[10];
+                    GetDlgItemText(hWnd, wmId, buttonText, 10);
+                    std::string currentText(GetWindowTextLength(hInput) + 1, '\0');
+                    GetWindowText(hInput, &currentText[0], currentText.size());
+                    currentText.pop_back(); // remove null terminator
 
-            if (strcmp(buttonText, "=") == 0) {
-                // evaluation - where it is called
-                auto result = evaluateExpression(currentText);
-                if (result.first.empty()) {
-                    setInputText(result.second);
-                    addToHistory(currentText, result.second);
-                } else {
-                    MessageBox(hWnd, result.first.c_str(), "Error", MB_OK | MB_ICONERROR);
+                    if (strcmp(buttonText, "=") == 0) {
+                        // evaluation - where it is called
+                        auto result = evaluateExpression(currentText);
+                        if (result.first.empty()) {
+                            setInputText(result.second);
+                            addToHistory(currentText, result.second);
+                        } else {
+                            MessageBox(hWnd, result.first.c_str(), "Error", MB_OK | MB_ICONERROR);
+                        }
+                    } else if (strcmp(buttonText, "C") == 0) {
+                        setInputText("");
+                    } else {
+                        setInputText(currentText + buttonText);
+                    }
+                } else if (HIWORD(wParam) == LBN_DBLCLK) {
+                    int selected = SendMessage(hHistory, LB_GETCURSEL, 0, 0);
+                    if (selected != LB_ERR) {
+                        char buffer[256];
+                        SendMessage(hHistory, LB_GETTEXT, selected, (LPARAM)buffer);
+                        std::string historyLine(buffer);
+                        size_t pos = historyLine.find(" = ");
+                        if (pos != std::string::npos) {
+                            setInputText(historyLine.substr(pos + 3));
+                        }
+                    }
                 }
-            } else if (strcmp(buttonText, "C") == 0) {
-                setInputText("");
-            } else {
-                setInputText(currentText + buttonText);
-            }
-        } else if (HIWORD(wParam) == LBN_DBLCLK) {
-            int selected = SendMessage(hHistory, LB_GETCURSEL, 0, 0);
-            if (selected != LB_ERR) {
-                char buffer[256];
-                SendMessage(hHistory, LB_GETTEXT, selected, (LPARAM)buffer);
-                std::string historyLine(buffer);
-                size_t pos = historyLine.find(" = ");
-                if (pos != std::string::npos) {
-                    setInputText(historyLine.substr(pos + 3));
-                }
-            }
+                break;
         }
         break;
     }
@@ -428,6 +443,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     case WM_TRAYICON:
         if (lParam == WM_LBUTTONDBLCLK) {
             ShowWindowFromTray();
+        } else if (lParam == WM_RBUTTONUP) { // Handle right-click
+            POINT curPoint;
+            GetCursorPos(&curPoint); // Get current mouse position
+
+            HMENU hMenu = CreatePopupMenu(); // Create a popup menu
+            AppendMenu(hMenu, MF_STRING, IDM_OPEN, "Open"); // Add "Open" item
+            AppendMenu(hMenu, MF_STRING, IDM_EXIT, "Exit"); // Add "Exit" item
+
+            // Set the foreground window to our window so the menu will close automatically
+            SetForegroundWindow(hWnd);
+
+            // Display the menu
+            TrackPopupMenu(hMenu, TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_BOTTOMALIGN,
+                           curPoint.x, curPoint.y, 0, hWnd, NULL);
+
+            // Destroy the menu when done
+            DestroyMenu(hMenu);
         }
         break;
     case WM_SYSCOMMAND:
