@@ -1,10 +1,2 @@
-.vs/
-packages/
-**/*.pubxml
-**/*.user
-**/bin/*
-**/obj/*
-**/.vscode/**
-
 *.exe
-ncalc_3/history.txt
+history.txt
