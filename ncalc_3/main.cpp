@@ -140,6 +140,9 @@ void ShowWindowFromTray() {
     ShowWindow(hWnd, SW_SHOW);
     ShowWindow(hWnd, SW_RESTORE);
     SetForegroundWindow(hWnd);
+    std::string currentText(GetWindowTextLength(hInput) + 1, '\0');
+    GetWindowText(hInput, &currentText[0], currentText.size());
+    setInputText(currentText);
     log("Show from tray: Set numlock true");
     setNumlock(TRUE);
 }
@@ -413,7 +416,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             if (itIsEnsureNumLockKeypress){
                 itIsEnsureNumLockKeypress = 0;
             } else {
-                if (IsWindowVisible(hWnd)) {
+                //if (IsWindowVisible(hWnd)) {
+                if ((hWnd == GetActiveWindow())){
                     MinimizeToTray();
                 } else {
                     ShowWindowFromTray();
