@@ -1,1 +1,1 @@
-g++ main.cpp -x c tinyexpr.c -o calculator.exe -lcomctl32 -mwindows -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections
+g++ -static main.cpp -x c tinyexpr.c -o calculator.exe -lcomctl32 -mwindows -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections
