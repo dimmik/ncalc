@@ -143,9 +143,9 @@ void ShowWindowFromTray() {
     ShowWindow(hWnd, SW_SHOW);
     ShowWindow(hWnd, SW_RESTORE);
     SetForegroundWindow(hWnd);
-    std::string currentText(GetWindowTextLength(hInput) + 1, '\0');
-    GetWindowText(hInput, &currentText[0], currentText.size());
-    setInputText(currentText);
+    SetFocus(hInput);
+    // Select all text in the input field
+    SendMessage(hInput, EM_SETSEL, 0, -1);
     log("Show from tray: Set numlock true");
     setNumlock(TRUE);
 }
@@ -275,8 +275,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     case WM_SHOWWINDOW:
         if (wParam) { // Window is being shown
             SetFocus(hInput);
-            int textLen = GetWindowTextLength(hInput);
-            SendMessage(hInput, EM_SETSEL, textLen, textLen);
+            // Select all text when window is shown
+            SendMessage(hInput, EM_SETSEL, 0, -1);
         }
         return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_COMMAND: {
