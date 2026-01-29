@@ -88,7 +88,7 @@ std::string eval(const std::string& exp)
    //std::string val = std::format("{:.2f}", r); c++ 20+
    
    char buffer[256];
-   snprintf(buffer, sizeof(buffer), "%g", r);
+   snprintf(buffer, sizeof(buffer), "%.20g", r);
    std::string val(buffer);
    return val;
 }
