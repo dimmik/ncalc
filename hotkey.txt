@@ -1,0 +1,9 @@
+VK_NUMLOCK
+// VK_NUMLOCK
+// VK_F8
+// VK_PRINT
+// VK_NUMLOCK
+// VK_CAPITAL (Caps Lock)
+// VK_SCROLL (Scroll Lock)
+// VK_PRINT (Print Screen)
+// VK_LAUNCH_APP1 (Calculator key on some keyboards)

@@ -5,11 +5,12 @@
 #include <commctrl.h>
 #include <fstream>
 #include <shlobj.h> // For SHGetFolderPath
+#include <map>
 
 #include "tinyexpr.h"
 
 #define WM_TRAYICON (WM_USER + 1)
-#define ID_HOTKEY_NUMLOCK 1
+#define ID_HOTKEY 1
 #define IDM_OPEN 1001 // New define
 #define IDM_EXIT 1002 // New define
 
@@ -46,6 +47,36 @@ std::string getExecutableDirectory() {
     GetModuleFileName(NULL, path, MAX_PATH);
     std::string s(path);
     return s.substr(0, s.find_last_of("\\/"));
+}
+
+// Function to get hotkey from file
+int getHotkeyFromFile() {
+    std::string hotkeyFilePath = getExecutableDirectory() + "\\hotkey.txt";
+    std::ifstream infile(hotkeyFilePath);
+    if (infile.is_open()) {
+        std::string line;
+        if (std::getline(infile, line)) {
+            // Trim whitespace
+            line.erase(line.find_last_not_of(" \n\r\t")+1);
+            
+            static const std::map<std::string, int> keyMap = {
+                {"VK_NUMLOCK", VK_NUMLOCK},
+                {"VK_CAPITAL", VK_CAPITAL},
+                {"VK_SCROLL", VK_SCROLL},
+                {"VK_PRINT", VK_PRINT},
+                {"VK_LAUNCH_APP1", VK_LAUNCH_APP1},
+                {"VK_F8", VK_F8}
+                // VK_F8
+            };
+
+            auto it = keyMap.find(line);
+            if (it != keyMap.end()) {
+                return it->second;
+            }
+        }
+        infile.close();
+    }
+    return VK_NUMLOCK; // Default
 }
 
 // Load history from file
@@ -267,7 +298,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     Shell_NotifyIcon(NIM_ADD, &nid);
 
     // Open/focus/close on numlock
-    RegisterHotKey(hWnd, ID_HOTKEY_NUMLOCK, 0, VK_NUMLOCK);
+    // Open/focus/close on hotkey
+    int hotkey = getHotkeyFromFile();
+    RegisterHotKey(hWnd, ID_HOTKEY, 0, hotkey);
 
     // Keyboard hook
     hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, hInstance, 0);
@@ -545,8 +578,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         setNumlock(TRUE);
         break;
     case WM_HOTKEY:
-        // Open/focus/close on numlock
-        if (wParam == ID_HOTKEY_NUMLOCK) {
+        // Open/focus/close on hotkey
+        if (wParam == ID_HOTKEY) {
             if (itIsEnsureNumLockKeypress){
                 itIsEnsureNumLockKeypress = 0;
             } else {
@@ -590,7 +623,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     case WM_DESTROY:
         UnhookWindowsHookEx(hKeyboardHook);
         Shell_NotifyIcon(NIM_DELETE, &nid);
-        UnregisterHotKey(hWnd, ID_HOTKEY_NUMLOCK);
+        UnregisterHotKey(hWnd, ID_HOTKEY);
         DeleteObject(hNormalFont);
         DeleteObject(hSmallBoldFont);
         PostQuitMessage(0);
