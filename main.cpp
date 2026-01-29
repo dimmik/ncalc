@@ -24,6 +24,7 @@ std::string historyFilePath;
 HFONT hNormalFont = NULL;
 HFONT hSmallBoldFont = NULL;
 std::string iconFilePath; // New global variable for icon path
+bool isUpdatingInput = false; // Flag to prevent recursion in input formatting
 
 // Log function that appends msg to file c:\tmp\clog.txt
 void log(const std::string& msg) {
@@ -69,8 +70,15 @@ void loadHistory() {
 void addToHistory(const std::string& expression, const std::string& result) {
     SYSTEMTIME st;
     GetLocalTime(&st);
-    char buffer[256];
-    wsprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d: %s = %s", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, expression.c_str(), result.c_str());
+    char buffer[512];
+    
+    // Format expression - add separators to numbers in the expression
+    std::string formattedExpr = expression;
+    // Note: expression already has separators from user input
+    
+    // Result already has separators from eval() function
+    
+    wsprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d: %s = %s", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, formattedExpr.c_str(), result.c_str());
     SendMessage(hHistory, LB_INSERTSTRING, 0, (LPARAM)buffer);
 
     // Also write to history file
@@ -81,16 +89,56 @@ void addToHistory(const std::string& expression, const std::string& result) {
     }
 }
 
+// Remove thousands separators from string for calculation
+std::string removeThousandsSeparator(const std::string& str) {
+    std::string result;
+    for (char c : str) {
+        if (c != '\'') {
+            result += c;
+        }
+    }
+    return result;
+}
+
+// Add thousands separator to number string
+std::string addThousandsSeparator(const std::string& numStr) {
+    std::string result = numStr;
+    
+    // Find decimal point position
+    size_t decimalPos = result.find('.');
+    size_t startPos = (decimalPos != std::string::npos) ? decimalPos : result.length();
+    
+    // Handle negative numbers
+    size_t firstDigit = (result[0] == '-') ? 1 : 0;
+    
+    // Add separators from right to left in the integer part
+    int count = 0;
+    for (int i = startPos - 1; i > firstDigit; --i) {
+        count++;
+        if (count == 3) {
+            result.insert(i, "'");
+            count = 0;
+        }
+    }
+    
+    return result;
+}
+
 std::string eval(const std::string& exp)
 {
-   double r = te_interp(exp.c_str(), 0);
+   // Remove thousands separators before evaluation
+   std::string cleanExp = removeThousandsSeparator(exp);
+   
+   double r = te_interp(cleanExp.c_str(), 0);
    //std::string val = std::to_string(r);
    //std::string val = std::format("{:.2f}", r); c++ 20+
    
    char buffer[256];
    snprintf(buffer, sizeof(buffer), "%.20g", r);
    std::string val(buffer);
-   return val;
+   
+   // Add thousands separators to result
+   return addThousandsSeparator(val);
 }
 
 // Evaluation function wireframe
@@ -281,6 +329,77 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_COMMAND: {
         int wmId = LOWORD(wParam);
+        int wmEvent = HIWORD(wParam);
+        
+        // Handle input field changes to add thousands separators
+        if (wmId == 100 && wmEvent == EN_CHANGE && !isUpdatingInput) {
+            char currentText[512];
+            GetWindowText(hInput, currentText, 512);
+            std::string text(currentText);
+            
+            // Only format if text contains digits
+            if (!text.empty()) {
+                std::string formatted;
+                std::string currentNumber;
+                bool inNumber = false;
+                bool hasDecimal = false;
+                
+                for (size_t i = 0; i < text.length(); ++i) {
+                    char c = text[i];
+                    
+                    if (c == '\'' ) {
+                        // Skip existing separators
+                        continue;
+                    } else if (isdigit(c) || c == '.') {
+                        if (c == '.') {
+                            hasDecimal = true;
+                        }
+                        currentNumber += c;
+                        inNumber = true;
+                    } else {
+                        // End of number - format it
+                        if (inNumber && !currentNumber.empty()) {
+                            formatted += addThousandsSeparator(currentNumber);
+                            currentNumber.clear();
+                            inNumber = false;
+                            hasDecimal = false;
+                        }
+                        formatted += c;
+                    }
+                }
+                
+                // Format last number if exists
+                if (inNumber && !currentNumber.empty()) {
+                    formatted += addThousandsSeparator(currentNumber);
+                }
+                
+                // Only update if changed
+                if (formatted != text) {
+                    // Get cursor position
+                    DWORD startPos, endPos;
+                    SendMessage(hInput, EM_GETSEL, (WPARAM)&startPos, (LPARAM)&endPos);
+                    
+                    // Calculate new cursor position (account for added separators)
+                    int separatorsBeforeCursor = 0;
+                    for (size_t i = 0; i < startPos && i < text.length(); ++i) {
+                        if (text[i] == '\'') separatorsBeforeCursor++;
+                    }
+                    
+                    int newSeparatorsBeforeCursor = 0;
+                    for (size_t i = 0; i < formatted.length() && newSeparatorsBeforeCursor + i - newSeparatorsBeforeCursor < startPos - separatorsBeforeCursor; ++i) {
+                        if (formatted[i] == '\'') newSeparatorsBeforeCursor++;
+                    }
+                    
+                    DWORD newCursorPos = startPos - separatorsBeforeCursor + newSeparatorsBeforeCursor;
+                    
+                    isUpdatingInput = true;
+                    SetWindowText(hInput, formatted.c_str());
+                    SendMessage(hInput, EM_SETSEL, newCursorPos, newCursorPos);
+                    isUpdatingInput = false;
+                }
+            }
+        }
+        
         switch (wmId) {
             case IDM_OPEN:
                 ShowWindowFromTray();
