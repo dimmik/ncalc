@@ -7,3 +7,4 @@ VK_NUMLOCK
 // VK_SCROLL (Scroll Lock)
 // VK_PRINT (Print Screen)
 // VK_LAUNCH_APP1 (Calculator key on some keyboards)
+// VK_LAUNCH_APP2 (Calculator key on some keyboards)

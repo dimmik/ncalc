@@ -723,8 +723,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
         int totalButtonWidth = newWidth - (numCols + 1) * scaledButtonPadding;
         int buttonWidth = totalButtonWidth / numCols;
-        int totalButtonHeight = newHeight - startY - scaledButtonPadding;
-        int buttonHeight = totalButtonHeight / numRows;
+        // Corrected calculation for buttonHeight
+        int availableSpaceForButtons = newHeight - startY - scaledButtonPadding;
+        int buttonHeight = (availableSpaceForButtons - (numRows - 1) * scaledButtonPadding) / numRows;
 
         for (int i = 0; i < numRows; ++i) {
             for (int j = 0; j < numCols; ++j) {
