@@ -687,7 +687,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         int minHistoryHeight = 50; // Minimum height for history
         
         // Calculate remaining height for buttons
-        int numRows = 6;
+        int numRows = 5;
         int numCols = 4;
         int estimatedButtonHeight = (scaledNormalHeight * -1) + scaledButtonPadding; // Estimate button height based on font
         int totalButtonAreaHeight = numRows * estimatedButtonHeight + (numRows + 1) * scaledButtonPadding;
