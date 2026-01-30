@@ -320,12 +320,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         "4", "5", "6", "*",
         "1", "2", "3", "-",
         "0", ".", "=", "+",
-        "C", "(", ")", "sqr",
-        "sqrt", "log", "ln", "a^b"
+        "C", "(", ")", "^"
     };
 
     int x = 10, y = 150;
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < 5; ++i) {
         for (int j = 0; j < 4; ++j) {
             CreateWindow("BUTTON", buttons[i * 4 + j], 
             WS_CHILD | WS_VISIBLE, x + j * 90, y + i * 50, 80, 40, 
