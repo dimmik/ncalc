@@ -65,8 +65,8 @@ int getHotkeyFromFile() {
                 {"VK_SCROLL", VK_SCROLL},
                 {"VK_PRINT", VK_PRINT},
                 {"VK_LAUNCH_APP1", VK_LAUNCH_APP1},
-                {"VK_F8", VK_F8}
-                // VK_F8
+                {"VK_F8", VK_F8},
+                {"VK_LAUNCH_APP2", VK_LAUNCH_APP2}
             };
 
             auto it = keyMap.find(line);
