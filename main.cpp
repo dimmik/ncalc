@@ -56,8 +56,17 @@ int getHotkeyFromFile() {
     if (infile.is_open()) {
         std::string line;
         if (std::getline(infile, line)) {
-            // Trim whitespace
-            line.erase(line.find_last_not_of(" \n\r\t")+1);
+            // Trim whitespace from the right
+            size_t last = line.find_last_not_of(" \n\r\t");
+            if (std::string::npos != last) {
+                line = line.substr(0, last + 1);
+            }
+
+            // Trim whitespace from the left
+            size_t first = line.find_first_not_of(" \n\r\t");
+            if (std::string::npos != first) {
+                line = line.substr(first);
+            }
             
             static const std::map<std::string, int> keyMap = {
                 {"VK_NUMLOCK", VK_NUMLOCK},
@@ -72,6 +81,15 @@ int getHotkeyFromFile() {
             auto it = keyMap.find(line);
             if (it != keyMap.end()) {
                 return it->second;
+            }
+
+            // If not in map, try to treat as hex value
+            try {
+                return std::stoul(line, nullptr, 16);
+            } catch (const std::invalid_argument& ia) {
+                // Not a valid hex, fall through to default
+            } catch (const std::out_of_range& oor) {
+                // Hex value out of range, fall through to default
             }
         }
         infile.close();
