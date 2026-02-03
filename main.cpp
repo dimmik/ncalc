@@ -6,6 +6,7 @@
 #include <fstream>
 #include <shlobj.h> // For SHGetFolderPath
 #include <map>
+#include <cctype>
 
 #include "tinyexpr.h"
 
@@ -162,7 +163,7 @@ std::string addThousandsSeparator(const std::string& numStr) {
     
     // Add separators from right to left in the integer part
     int count = 0;
-    for (int i = startPos - 1; i > firstDigit; --i) {
+    for (int i = (int)startPos - 1; i > (int)firstDigit; --i) {
         count++;
         if (count == 3) {
             result.insert(i, "'");
@@ -173,12 +174,33 @@ std::string addThousandsSeparator(const std::string& numStr) {
     return result;
 }
 
+// New function to prepare expression for tinyexpr
+std::string prepareExpression(const std::string& exp) {
+    std::string result;
+    result.reserve(exp.length() + 1); // Reserve some space
+
+    for (size_t i = 0; i < exp.length(); ++i) {
+        char c = exp[i];
+        if (c == '.') {
+            // Check if the previous character is not a digit
+            if (i == 0 || !isdigit(exp[i - 1])) {
+                result += '0';
+            }
+        }
+        result += c;
+    }
+    return result;
+}
+
 std::string eval(const std::string& exp)
 {
    // Remove thousands separators before evaluation
    std::string cleanExp = removeThousandsSeparator(exp);
+
+   // Prepare expression for tinyexpr (e.g., .5 -> 0.5)
+   std::string preparedExp = prepareExpression(cleanExp);
    
-   double r = te_interp(cleanExp.c_str(), 0);
+   double r = te_interp(preparedExp.c_str(), 0);
    //std::string val = std::to_string(r);
    //std::string val = std::format("{:.2f}", r); c++ 20+
    
