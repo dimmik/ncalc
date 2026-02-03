@@ -213,7 +213,7 @@ std::pair<std::string, std::string> eval(const std::string& exp)
        std::string error_msg = "Error at position " + std::to_string(error_pos);
        if (error_pos > 0 && (size_t)error_pos <= preparedExp.length() + 1) {
             std::string pointer;
-            for(int i=0; i < error_pos -1; ++i) pointer += "-";
+            for(int i=0; i < error_pos -1; ++i) pointer += preparedExp[i];
             pointer += "^";
            error_msg = "Invalid expression.\n" + preparedExp + "\n" + pointer;
        }
