@@ -7,10 +7,12 @@
 #include <shlobj.h> // For SHGetFolderPath
 #include <map>
 #include <cctype>
+#include <cmath>
 
 #include "tinyexpr.h"
 
 #define WM_TRAYICON (WM_USER + 1)
+#define WM_SHOW_ERROR_MSGBOX (WM_USER + 2)
 #define ID_HOTKEY 1
 #define IDM_OPEN 1001 // New define
 #define IDM_EXIT 1002 // New define
@@ -192,7 +194,7 @@ std::string prepareExpression(const std::string& exp) {
     return result;
 }
 
-std::string eval(const std::string& exp)
+std::pair<std::string, std::string> eval(const std::string& exp)
 {
    // Remove thousands separators before evaluation
    std::string cleanExp = removeThousandsSeparator(exp);
@@ -200,24 +202,35 @@ std::string eval(const std::string& exp)
    // Prepare expression for tinyexpr (e.g., .5 -> 0.5)
    std::string preparedExp = prepareExpression(cleanExp);
    
-   double r = te_interp(preparedExp.c_str(), 0);
-   //std::string val = std::to_string(r);
-   //std::string val = std::format("{:.2f}", r); c++ 20+
+   if (preparedExp.empty()) {
+       return {"", "0"};
+   }
+
+   int error_pos = 0;
+   double r = te_interp(preparedExp.c_str(), &error_pos);
+   
+   if (error_pos != 0) {
+       std::string error_msg = "Error at position " + std::to_string(error_pos);
+       if (error_pos > 0 && (size_t)error_pos <= preparedExp.length() + 1) {
+            std::string pointer;
+            for(int i=0; i < error_pos -1; ++i) pointer += "-";
+            pointer += "^";
+           error_msg = "Invalid expression.\n" + preparedExp + "\n" + pointer;
+       }
+       return {error_msg, ""};
+   }
    
    char buffer[256];
    snprintf(buffer, sizeof(buffer), "%.20g", r);
    std::string val(buffer);
    
    // Add thousands separators to result
-   return addThousandsSeparator(val);
+   return {"", addThousandsSeparator(val)};
 }
 
 // Evaluation function wireframe
 std::pair<std::string, std::string> evaluateExpression(const std::string& expression_s) {
-    // This is a wireframe for the evaluation function.
-    // It currently returns a fixed value.
-    std::string val = eval(expression_s);
-    return {"", val};
+    return eval(expression_s);
 }
 
 void setInputText(const std::string& text) {
@@ -288,7 +301,10 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 setInputText(result.second);
                 addToHistory(currentText, result.second);
             } else {
-                MessageBox(hWnd, result.first.c_str(), "Error", MB_OK | MB_ICONERROR);
+                // Can't show MessageBox directly from a low-level hook.
+                // Post a message to our own window and let it handle it.
+                std::string* error_msg = new std::string(result.first);
+                PostMessage(hWnd, WM_SHOW_ERROR_MSGBOX, 0, (LPARAM)error_msg);
             }
             return 1;
         }
@@ -392,6 +408,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
+    case WM_SHOW_ERROR_MSGBOX: {
+        std::string* error_msg = (std::string*)lParam;
+        MessageBox(hWnd, error_msg->c_str(), "Error", MB_OK | MB_ICONERROR);
+        delete error_msg;
+        break;
+    }
     case WM_SHOWWINDOW:
         if (wParam) { // Window is being shown
             SetFocus(hInput);
