@@ -406,11 +406,80 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     return (int)msg.wParam;
 }
 
+void ShowMonospacedError(HWND owner, const std::string& msg) {
+    const TCHAR* CLASS_NAME = TEXT("MonospacedErrorClass");
+    static bool class_registered = false;
+
+    WNDPROC DlgProc = [](HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) -> LRESULT {
+        switch (message) {
+            case WM_CREATE: {
+                CREATESTRUCT* pCreate = (CREATESTRUCT*)lParam;
+                
+                HWND hStatic = CreateWindow(TEXT("STATIC"), (LPCSTR)pCreate->lpCreateParams, WS_CHILD | WS_VISIBLE, 10, 10, 380, 100, hDlg, NULL, NULL, NULL);
+                HWND hButton = CreateWindow(TEXT("BUTTON"), TEXT("OK"), WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON, 160, 120, 80, 25, hDlg, (HMENU)IDOK, NULL, NULL);
+                
+                HFONT hFont = CreateFont(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, TEXT("Consolas"));
+                if (hFont) {
+                    SendMessage(hStatic, WM_SETFONT, (WPARAM)hFont, TRUE);
+                    SetProp(hDlg, TEXT("hMonoFont"), hFont);
+                }
+                break;
+            }
+            case WM_COMMAND:
+                if (LOWORD(wParam) == IDOK) {
+                    DestroyWindow(hDlg);
+                }
+                break;
+            case WM_DESTROY:
+                DeleteObject(GetProp(hDlg, TEXT("hMonoFont")));
+                RemoveProp(hDlg, TEXT("hMonoFont"));
+                PostQuitMessage(0);
+                break;
+            default:
+                return DefWindowProc(hDlg, message, wParam, lParam);
+        }
+        return 0;
+    };
+
+    if (!class_registered) {
+        WNDCLASS wc = {};
+        wc.lpfnWndProc = DlgProc;
+        wc.hInstance = GetModuleHandle(NULL);
+        wc.lpszClassName = CLASS_NAME;
+        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+        RegisterClass(&wc);
+        class_registered = true;
+    }
+
+    RECT owner_rect;
+    GetWindowRect(owner, &owner_rect);
+    int width = 420;
+    int height = 200;
+    int x = owner_rect.left + (owner_rect.right - owner_rect.left - width) / 2;
+    int y = owner_rect.top + (owner_rect.bottom - owner_rect.top - height) / 2;
+
+    HWND hDlg = CreateWindowEx(WS_EX_DLGMODALFRAME, CLASS_NAME, TEXT("Error"), WS_VISIBLE | WS_SYSMENU | WS_CAPTION, x, y, width, height, owner, NULL, GetModuleHandle(NULL), (LPVOID)msg.c_str());
+
+    EnableWindow(owner, FALSE);
+
+    MSG dlg_msg;
+    while (GetMessage(&dlg_msg, NULL, 0, 0)) {
+        if (!IsDialogMessage(hDlg, &dlg_msg)) {
+            TranslateMessage(&dlg_msg);
+            DispatchMessage(&dlg_msg);
+        }
+    }
+
+    EnableWindow(owner, TRUE);
+    SetForegroundWindow(owner);
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
     case WM_SHOW_ERROR_MSGBOX: {
         std::string* error_msg = (std::string*)lParam;
-        MessageBox(hWnd, error_msg->c_str(), "Error", MB_OK | MB_ICONERROR);
+        ShowMonospacedError(hWnd, *error_msg);
         delete error_msg;
         break;
     }
@@ -517,7 +586,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                             setInputText(result.second);
                             addToHistory(currentText, result.second);
                         } else {
-                            MessageBox(hWnd, result.first.c_str(), "Error", MB_OK | MB_ICONERROR);
+                            ShowMonospacedError(hWnd, result.first);
                         }
                     } else if (strcmp(buttonText, "C") == 0) {
                         setInputText("");
