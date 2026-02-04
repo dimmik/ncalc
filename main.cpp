@@ -221,7 +221,7 @@ std::pair<std::string, std::string> eval(const std::string& exp)
    }
    
    char buffer[256];
-   snprintf(buffer, sizeof(buffer), "%.20g", r);
+   snprintf(buffer, sizeof(buffer), "%.4g", r);
    std::string val(buffer);
    
    // Add thousands separators to result
@@ -675,6 +675,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             DestroyMenu(hMenu);
         }
         break;
+    case WM_CLOSE:
+        MinimizeToTray();
+        return 0;
     case WM_SYSCOMMAND:
         if (wParam == SC_MINIMIZE) {
             MinimizeToTray();
