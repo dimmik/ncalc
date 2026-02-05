@@ -11,11 +11,28 @@
 
 #include "tinyexpr.h"
 
+#define ID_THEME_BUTTON 220 // New button ID
 #define WM_TRAYICON (WM_USER + 1)
 #define WM_SHOW_ERROR_MSGBOX (WM_USER + 2)
 #define ID_HOTKEY 1
 #define IDM_OPEN 1001 // New define
 #define IDM_EXIT 1002 // New define
+#define THEME_BUTTON_TXT "Theme"
+
+// Theme colors
+COLORREF dark_bg = RGB(0x20, 0x20, 0x20);
+COLORREF dark_text = RGB(0xFF, 0xFF, 0xFF);
+COLORREF dark_btn_bg = RGB(0x33, 0x33, 0x33);
+COLORREF dark_btn_text = RGB(0xFF, 0xFF, 0xFF);
+
+COLORREF light_bg = RGB(0xFF, 0xFF, 0xFF);
+COLORREF light_text = RGB(0x00, 0x00, 0x00);
+COLORREF light_btn_bg = RGB(0xFF, 0xFF, 0xFF);
+COLORREF light_btn_text = RGB(0x00, 0x00, 0x00);
+
+bool isDarkTheme = false;
+HBRUSH hbrDarkBkgnd = NULL;
+HBRUSH hbrDarkBtn = NULL;
 
 // Global variables
 HINSTANCE hInst;
@@ -50,6 +67,28 @@ std::string getExecutableDirectory() {
     GetModuleFileName(NULL, path, MAX_PATH);
     std::string s(path);
     return s.substr(0, s.find_last_of("\\/"));
+}
+
+void applyTheme(); // Forward declaration
+
+void saveTheme() {
+    std::string themeFilePath = getExecutableDirectory() + "\\theme.txt";
+    std::ofstream outfile(themeFilePath);
+    if (outfile.is_open()) {
+        outfile << (isDarkTheme ? "dark" : "light");
+        outfile.close();
+    }
+}
+
+void loadTheme() {
+    std::string themeFilePath = getExecutableDirectory() + "\\theme.txt";
+    std::ifstream infile(themeFilePath);
+    if (infile.is_open()) {
+        std::string theme;
+        infile >> theme;
+        isDarkTheme = (theme == "dark");
+        infile.close();
+    }
 }
 
 // Function to get hotkey from file
@@ -221,7 +260,7 @@ std::pair<std::string, std::string> eval(const std::string& exp)
    }
    
    char buffer[256];
-   snprintf(buffer, sizeof(buffer), "%.4g", r);
+   snprintf(buffer, sizeof(buffer), "%.12g", r);
    std::string val(buffer);
    
    // Add thousands separators to result
@@ -331,7 +370,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wcex.hInstance = hInstance;
     wcex.hIcon = (HICON)LoadImage(NULL, iconFilePath.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
     wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wcex.hbrBackground = NULL; // Set to NULL, handled by applyTheme
     wcex.lpszMenuName = NULL;
     wcex.lpszClassName = "CalculatorClass";
     wcex.hIconSm = (HICON)LoadImage(NULL, iconFilePath.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
@@ -376,20 +415,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         "4", "5", "6", "*",
         "1", "2", "3", "-",
         "0", ".", "=", "+",
-        "C", "(", ")", "^"
+        "C", "(", ")", THEME_BUTTON_TXT
     };
 
     int x = 10, y = 150;
     for (int i = 0; i < 5; ++i) {
         for (int j = 0; j < 4; ++j) {
-            CreateWindow("BUTTON", buttons[i * 4 + j], 
-            WS_CHILD | WS_VISIBLE, x + j * 90, y + i * 50, 80, 40, 
-            hWnd, (HMENU)(UINT_PTR)(buttonId++), hInst, NULL);
+            if (i * 4 + j < 20) {
+//                if (buttons[i*4+j] == THEME_BUTTON_TXT){
+//                    CreateWindow("BUTTON", buttons[i * 4 + j], WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, x + j * 90, y + i * 50, 80, 40, hWnd, (HMENU)ID_THEME_BUTTON, hInst, NULL);
+//                } else {
+                    CreateWindow("BUTTON", buttons[i * 4 + j], WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, x + j * 90, y + i * 50, 80, 40, hWnd, (HMENU)(UINT_PTR)(buttonId++), hInst, NULL);
+//                }
+            }
         }
     }
     
-    // Numlock always on control
-    //SetTimer(hWnd, 1, 500, NULL); // Check every second to enforce NumLock
+    loadTheme();
+    applyTheme();
 
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
@@ -406,8 +449,49 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     return (int)msg.wParam;
 }
 
+void applyTheme() {
+    if (isDarkTheme) {
+        if (hbrDarkBkgnd == NULL) hbrDarkBkgnd = CreateSolidBrush(dark_bg);
+        if (hbrDarkBtn == NULL) hbrDarkBtn = CreateSolidBrush(dark_btn_bg);
+        SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)hbrDarkBkgnd);
+    } else {
+        if (hbrDarkBkgnd) {
+            DeleteObject(hbrDarkBkgnd);
+            hbrDarkBkgnd = NULL;
+        }
+        if (hbrDarkBtn) {
+            DeleteObject(hbrDarkBtn);
+            hbrDarkBtn = NULL;
+        }
+        SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)(COLOR_WINDOW + 1));
+    }
+
+    // Redraw all child windows
+    InvalidateRect(hWnd, NULL, TRUE);
+    UpdateWindow(hWnd);
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
+    case WM_CTLCOLORBTN: {
+        if (isDarkTheme) {
+            HDC hdcButton = (HDC)wParam;
+            SetTextColor(hdcButton, dark_btn_text);
+            SetBkColor(hdcButton, dark_btn_bg);
+            return (LRESULT)hbrDarkBtn;
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
+    case WM_CTLCOLOREDIT: // For the input field
+    case WM_CTLCOLORSTATIC: {
+        if (isDarkTheme) {
+            HDC hdcStatic = (HDC)wParam;
+            SetTextColor(hdcStatic, dark_text);
+            SetBkColor(hdcStatic, dark_bg);
+            return (LRESULT)hbrDarkBkgnd;
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
     case WM_SHOW_ERROR_MSGBOX: {
         std::string* error_msg = (std::string*)lParam;
         MessageBox(hWnd, error_msg->c_str(), "Error", MB_OK | MB_ICONERROR);
@@ -495,6 +579,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         
         switch (wmId) {
+            case ID_THEME_BUTTON:
+                isDarkTheme = !isDarkTheme;
+                saveTheme();
+                applyTheme();
+                break;
             case IDM_OPEN:
                 ShowWindowFromTray();
                 break;
@@ -506,6 +595,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 if (wmId >= 200) { // Button clicks
                     char buttonText[10];
                     GetDlgItemText(hWnd, wmId, buttonText, 10);
+                    //if (buttonText == THEME_BUTTON_TXT){
+                    if (strcmp(buttonText, THEME_BUTTON_TXT) == 0){
+                        isDarkTheme = !isDarkTheme;
+                        saveTheme();
+                        applyTheme();
+                        break;
+                    }
                     std::string currentText(GetWindowTextLength(hInput) + 1, '\0');
                     GetWindowText(hInput, &currentText[0], currentText.size());
                     currentText.pop_back(); // remove null terminator
@@ -578,12 +674,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             std::string itemText(buffer);
 
             // Determine colors
-            COLORREF textColor = (dis->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHTTEXT) : GetSysColor(COLOR_WINDOWTEXT);
-            COLORREF backgroundColor = (dis->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHT) : GetSysColor(COLOR_WINDOW);
+            COLORREF textColor, backgroundColor;
+            if (isDarkTheme) {
+                textColor = (dis->itemState & ODS_SELECTED) ? light_text : dark_text;
+                backgroundColor = (dis->itemState & ODS_SELECTED) ? light_bg : dark_bg;
+            } else {
+                textColor = (dis->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHTTEXT) : GetSysColor(COLOR_WINDOWTEXT);
+                backgroundColor = (dis->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHT) : GetSysColor(COLOR_WINDOW);
+            }
+
+            HBRUSH hbrBackground = CreateSolidBrush(backgroundColor);
+            FillRect(dis->hDC, &dis->rcItem, hbrBackground);
+            DeleteObject(hbrBackground);
 
             SetBkColor(dis->hDC, backgroundColor);
             SetTextColor(dis->hDC, textColor);
-            FillRect(dis->hDC, &dis->rcItem, CreateSolidBrush(backgroundColor));
 
             // Parse the string
             size_t eq_pos = itemText.find(" = ");
@@ -630,6 +735,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             if (dis->itemState & ODS_FOCUS) {
                 DrawFocusRect(dis->hDC, &dis->rcItem);
             }
+            return TRUE;
+        } else { // It's a button
+            char buttonText[10];
+            GetWindowText(dis->hwndItem, buttonText, 10);
+
+            COLORREF bgColor = isDarkTheme ? dark_btn_bg : light_btn_bg;
+            COLORREF textColor = isDarkTheme ? dark_btn_text : light_btn_text;
+
+            if (dis->itemState & ODS_SELECTED) {
+                bgColor = isDarkTheme ? RGB(0x55, 0x55, 0x55) : RGB(0xDD, 0xDD, 0xDD);
+            }
+
+            HBRUSH hbr = CreateSolidBrush(bgColor);
+            FillRect(dis->hDC, &dis->rcItem, hbr);
+            DeleteObject(hbr);
+
+            SetBkMode(dis->hDC, TRANSPARENT);
+            SetTextColor(dis->hDC, textColor);
+            DrawText(dis->hDC, buttonText, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
             return TRUE;
         }
         break;
@@ -690,6 +815,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         UnregisterHotKey(hWnd, ID_HOTKEY);
         DeleteObject(hNormalFont);
         DeleteObject(hSmallBoldFont);
+        if (hbrDarkBkgnd) DeleteObject(hbrDarkBkgnd);
+        if (hbrDarkBtn) DeleteObject(hbrDarkBtn);
         PostQuitMessage(0);
         break;
     case WM_SIZE: {
