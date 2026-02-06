@@ -492,6 +492,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
+    case WM_CTLCOLORLISTBOX: {
+        if (isDarkTheme) {
+            HDC hdcListBox = (HDC)wParam;
+            SetTextColor(hdcListBox, dark_text);
+            SetBkColor(hdcListBox, dark_bg);
+            return (LRESULT)hbrDarkBkgnd;
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
     case WM_SHOW_ERROR_MSGBOX: {
         std::string* error_msg = (std::string*)lParam;
         MessageBox(hWnd, error_msg->c_str(), "Error", MB_OK | MB_ICONERROR);
@@ -666,6 +675,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lParam;
         if (dis->CtlID == 101) { // hHistory listbox
             if (dis->itemID == -1) { // Empty item
+                // Erase the background of the empty listbox
+                COLORREF backgroundColor = isDarkTheme ? dark_bg : light_bg;
+                HBRUSH hbrBackground = CreateSolidBrush(backgroundColor);
+                FillRect(dis->hDC, &dis->rcItem, hbrBackground);
+                DeleteObject(hbrBackground);
                 return TRUE;
             }
 
