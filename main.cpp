@@ -8,6 +8,7 @@
 #include <map>
 #include <cctype>
 #include <cmath>
+#include <gdiplus.h>
 
 #include "tinyexpr.h"
 
@@ -20,10 +21,12 @@
 #define THEME_BUTTON_TXT "Theme"
 
 // Theme colors
-COLORREF dark_bg = RGB(0x20, 0x20, 0x20);
-COLORREF dark_text = RGB(0xFF, 0xFF, 0xFF);
-COLORREF dark_btn_bg = RGB(0x33, 0x33, 0x33);
-COLORREF dark_btn_text = RGB(0xFF, 0xFF, 0xFF);
+COLORREF dark_bg = RGB(43, 43, 43);
+COLORREF dark_text = RGB(255, 255, 255);
+COLORREF dark_btn_bg = RGB(51, 51, 51);
+COLORREF dark_btn_text = RGB(255, 255, 255);
+COLORREF dark_input_history_bg = RGB(35, 35, 35);
+COLORREF dark_border_color = RGB(85, 85, 85);
 
 COLORREF light_bg = RGB(0xFF, 0xFF, 0xFF);
 COLORREF light_text = RGB(0x00, 0x00, 0x00);
@@ -33,6 +36,7 @@ COLORREF light_btn_text = RGB(0x00, 0x00, 0x00);
 bool isDarkTheme = false;
 HBRUSH hbrDarkBkgnd = NULL;
 HBRUSH hbrDarkBtn = NULL;
+HBRUSH hbrDarkInputHistoryBkgnd = NULL;
 
 // Global variables
 HINSTANCE hInst;
@@ -44,8 +48,12 @@ HHOOK hKeyboardHook;
 std::string historyFilePath;
 HFONT hNormalFont = NULL;
 HFONT hSmallBoldFont = NULL;
+WNDPROC originalEditProc; // For subclassing edit controls
 std::string iconFilePath; // New global variable for icon path
 bool isUpdatingInput = false; // Flag to prevent recursion in input formatting
+
+Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+ULONG_PTR gdiplusToken;
 
 // Log function that appends msg to file c:\tmp\clog.txt
 void log(const std::string& msg) {
@@ -70,6 +78,49 @@ std::string getExecutableDirectory() {
 }
 
 void applyTheme(); // Forward declaration
+
+// Function to create and apply fonts
+void createAndApplyFonts() {
+    // Delete old fonts if they exist
+    if (hNormalFont) DeleteObject(hNormalFont);
+    if (hSmallBoldFont) DeleteObject(hSmallBoldFont);
+
+    // Create hNormalFont (for display/input and buttons)
+    LOGFONT lfNormal;
+    ZeroMemory(&lfNormal, sizeof(LOGFONT));
+    lfNormal.lfHeight = -14; // 14pt
+    lfNormal.lfWeight = FW_NORMAL;
+    strcpy_s(lfNormal.lfFaceName, LF_FACESIZE, "Segoe UI");
+    hNormalFont = CreateFontIndirect(&lfNormal);
+
+    // Create hSmallBoldFont (for history datetime part)
+    LOGFONT lfSmallBold;
+    ZeroMemory(&lfSmallBold, sizeof(LOGFONT));
+    lfSmallBold.lfHeight = -12; // 12pt
+    lfSmallBold.lfWeight = FW_BOLD;
+    strcpy_s(lfSmallBold.lfFaceName, LF_FACESIZE, "Segoe UI");
+    hSmallBoldFont = CreateFontIndirect(&lfSmallBold);
+
+    // Apply fonts to controls
+    if (hInput) SendMessage(hInput, WM_SETFONT, (WPARAM)hNormalFont, TRUE);
+    if (hHistory) {
+        SendMessage(hHistory, WM_SETFONT, (WPARAM)hNormalFont, TRUE); // Apply normal font to history listbox
+        // For owner-drawn listbox, the font for specific parts is set in WM_DRAWITEM
+    }
+
+    // Apply font to buttons
+    for (int i = 200; i < 220; ++i) { // Assuming button IDs are 200-219
+        HWND hButton = GetDlgItem(hWnd, i);
+        if (hButton) {
+            SendMessage(hButton, WM_SETFONT, (WPARAM)hNormalFont, TRUE);
+        }
+    }
+    // Apply font to theme button
+    HWND hThemeButton = GetDlgItem(hWnd, ID_THEME_BUTTON);
+    if (hThemeButton) {
+        SendMessage(hThemeButton, WM_SETFONT, (WPARAM)hNormalFont, TRUE);
+    }
+}
 
 void saveTheme() {
     std::string themeFilePath = getExecutableDirectory() + "\\theme.txt";
@@ -144,16 +195,16 @@ void loadHistory() {
     std::ifstream infile(historyFilePath);
     if (infile.is_open()) {
         std::string line;
-        std::vector<std::string> lines;
+        std::string fullHistoryText;
         while (std::getline(infile, line)) {
-            lines.push_back(line);
+            fullHistoryText += line + "\r\n"; // Append line and a newline for EDIT control
         }
         infile.close();
-        // Insert lines into the listbox in reverse order of reading, but at index 0
-        // This will result in the newest entry (last in file) being at the top of the listbox
-        for (int i = 0; i < lines.size(); ++i) {
-            SendMessage(hHistory, LB_INSERTSTRING, 0, (LPARAM)lines[i].c_str());
-        }
+        SetWindowText(hHistory, fullHistoryText.c_str());
+        // Scroll to the end
+        SendMessage(hHistory, EM_SETSEL, 0, -1); // Select all
+        SendMessage(hHistory, EM_SETSEL, -1, -1); // Deselect and move caret to end
+        SendMessage(hHistory, EM_SCROLLCARET, 0, 0); // Scroll caret into view
     }
 }
 
@@ -170,7 +221,12 @@ void addToHistory(const std::string& expression, const std::string& result) {
     // Result already has separators from eval() function
     
     wsprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d: %s = %s", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, formattedExpr.c_str(), result.c_str());
-    SendMessage(hHistory, LB_INSERTSTRING, 0, (LPARAM)buffer);
+    
+    // Append to EDIT control
+    int len = GetWindowTextLength(hHistory);
+    SendMessage(hHistory, EM_SETSEL, len, len); // Set selection to end
+    SendMessage(hHistory, EM_REPLACESEL, 0, (LPARAM)(std::string(buffer) + "\r\n").c_str()); // Append new text with newline
+    SendMessage(hHistory, EM_SCROLLCARET, 0, 0); // Scroll caret into view
 
     // Also write to history file
     std::ofstream outfile(historyFilePath, std::ios_base::app);
@@ -327,6 +383,67 @@ void MinimizeToTray() {
     setNumlock(TRUE);
 }
 
+// Helper function to draw a rounded rectangle using GDI+
+void DrawRoundedRect(Gdiplus::Graphics* graphics, Gdiplus::Pen* pen, Gdiplus::Brush* brush, float x, float y, float width, float height, float radius) {
+    Gdiplus::GraphicsPath path;
+    
+    // Top-left corner
+    path.AddArc(x, y, 2 * radius, 2 * radius, 180, 90);
+    // Top-right corner
+    path.AddArc(x + width - 2 * radius, y, 2 * radius, 2 * radius, 270, 90);
+    // Bottom-right corner
+    path.AddArc(x + width - 2 * radius, y + height - 2 * radius, 2 * radius, 2 * radius, 0, 90);
+    // Bottom-left corner
+    path.AddArc(x, y + height - 2 * radius, 2 * radius, 2 * radius, 90, 90);
+    path.CloseFigure();
+
+    graphics->FillPath(brush, &path);
+    graphics->DrawPath(pen, &path);
+}
+
+LRESULT CALLBACK EditSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        case WM_NCPAINT: {
+            // Get the window DC
+            HDC hdc = GetWindowDC(hWnd);
+            if (hdc) {
+                RECT rect;
+                GetWindowRect(hWnd, &rect);
+                rect.right -= rect.left;
+                rect.bottom -= rect.top;
+                rect.left = 0;
+                rect.top = 0;
+
+                // Draw the custom border
+                HPEN hPen = CreatePen(PS_SOLID, 1, dark_border_color);
+                HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+                HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
+                Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
+
+                SelectObject(hdc, hOldPen);
+                SelectObject(hdc, hOldBrush);
+                DeleteObject(hPen);
+
+                ReleaseDC(hWnd, hdc);
+            }
+            return 0; // Indicate that we handled the non-client painting
+        }
+        case WM_NCCALCSIZE: {
+            // This message is sent when the size of the client area needs to be calculated.
+            // We need to adjust the client area to make space for our custom border.
+            // If we don't do this, the client area will overlap our border.
+            LPNCCALCSIZE_PARAMS pncsp = (LPNCCALCSIZE_PARAMS)lParam;
+            pncsp->rgrc[0].left += 1;
+            pncsp->rgrc[0].top += 1;
+            pncsp->rgrc[0].right -= 1;
+            pncsp->rgrc[0].bottom -= 1;
+            return 0;
+        }
+    }
+    return CallWindowProc(originalEditProc, hWnd, uMsg, wParam, lParam);
+}
+
 LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (!(hWnd == GetActiveWindow())) return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
     if (nCode == HC_ACTION) {
@@ -357,6 +474,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     log("Application started");
     hInst = hInstance;
 
+    // Initialize GDI+
+    Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
     // Initialize history file path
     historyFilePath = getExecutableDirectory() + "\\history.txt";
     iconFilePath = getExecutableDirectory() + "\\calculator.ico"; // Initialize icon file path
@@ -376,7 +496,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wcex.hIconSm = (HICON)LoadImage(NULL, iconFilePath.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
     RegisterClassEx(&wcex);
 
-    hWnd = CreateWindow("CalculatorClass", "Calculator", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 400, 500, NULL, NULL, hInstance, NULL);
+    hWnd = CreateWindow("CalculatorClass", "Calculator", WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 400, 600, NULL, NULL, hInstance, NULL);
 
     if (!hWnd) {
         return FALSE;
@@ -402,8 +522,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
     // Create UI elements
-    hInput = CreateWindow("EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT, 10, 10, 360, 25, hWnd, (HMENU)100, hInst, NULL);
-    hHistory = CreateWindow("LISTBOX", "", WS_CHILD | WS_VISIBLE | WS_BORDER | LBS_NOTIFY | LBS_OWNERDRAWFIXED | LBS_HASSTRINGS, 10, 40, 360, 100, hWnd, (HMENU)101, hInst, NULL);
+    hInput = CreateWindow("EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_RIGHT, 10, 10, 380, 40, hWnd, (HMENU)100, hInst, NULL);
+    hHistory = CreateWindow("EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | ES_RIGHT | ES_READONLY, 10, 60, 380, 190, hWnd, (HMENU)101, hInst, NULL);
+
+    originalEditProc = (WNDPROC)SetWindowLongPtr(hInput, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc);
+    SetWindowLongPtr(hHistory, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc);
 
     // Load history after creating the listbox
     loadHistory();
@@ -418,19 +541,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         "C", "(", ")", THEME_BUTTON_TXT
     };
 
-    int x = 10, y = 150;
+    int x = 10, y = 260; // Updated start position for buttons
+    int buttonWidth = 87;
+    int buttonHeight = 60;
+    int buttonSpacing = 10;
     for (int i = 0; i < 5; ++i) {
         for (int j = 0; j < 4; ++j) {
             if (i * 4 + j < 20) {
-//                if (buttons[i*4+j] == THEME_BUTTON_TXT){
-//                    CreateWindow("BUTTON", buttons[i * 4 + j], WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, x + j * 90, y + i * 50, 80, 40, hWnd, (HMENU)ID_THEME_BUTTON, hInst, NULL);
-//                } else {
-                    CreateWindow("BUTTON", buttons[i * 4 + j], WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, x + j * 90, y + i * 50, 80, 40, hWnd, (HMENU)(UINT_PTR)(buttonId++), hInst, NULL);
-//                }
+                CreateWindow("BUTTON", buttons[i * 4 + j], WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, 
+                             x + j * (buttonWidth + buttonSpacing), 
+                             y + i * (buttonHeight + buttonSpacing), 
+                             buttonWidth, buttonHeight, hWnd, (HMENU)(UINT_PTR)(buttonId++), hInst, NULL);
             }
         }
     }
     
+    createAndApplyFonts();
     loadTheme();
     applyTheme();
 
@@ -453,6 +579,7 @@ void applyTheme() {
     if (isDarkTheme) {
         if (hbrDarkBkgnd == NULL) hbrDarkBkgnd = CreateSolidBrush(dark_bg);
         if (hbrDarkBtn == NULL) hbrDarkBtn = CreateSolidBrush(dark_btn_bg);
+        if (hbrDarkInputHistoryBkgnd == NULL) hbrDarkInputHistoryBkgnd = CreateSolidBrush(dark_input_history_bg);
         SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)hbrDarkBkgnd);
     } else {
         if (hbrDarkBkgnd) {
@@ -463,6 +590,10 @@ void applyTheme() {
             DeleteObject(hbrDarkBtn);
             hbrDarkBtn = NULL;
         }
+        if (hbrDarkInputHistoryBkgnd) {
+            DeleteObject(hbrDarkInputHistoryBkgnd);
+            hbrDarkInputHistoryBkgnd = NULL;
+        }
         SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)(COLOR_WINDOW + 1));
     }
 
@@ -472,6 +603,8 @@ void applyTheme() {
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    int wmId;
+    int wmEvent;
     switch (message) {
     case WM_CTLCOLORBTN: {
         if (isDarkTheme) {
@@ -482,8 +615,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
-    case WM_CTLCOLOREDIT: // For the input field
-    case WM_CTLCOLORSTATIC: {
+    case WM_CTLCOLOREDIT: { // For the input and history fields
+        if (isDarkTheme) {
+            HDC hdcEdit = (HDC)wParam;
+            SetTextColor(hdcEdit, dark_text);
+            SetBkColor(hdcEdit, dark_input_history_bg);
+            return (LRESULT)hbrDarkInputHistoryBkgnd;
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
+    case WM_CTLCOLORSTATIC: { // For static controls, if any
         if (isDarkTheme) {
             HDC hdcStatic = (HDC)wParam;
             SetTextColor(hdcStatic, dark_text);
@@ -492,15 +633,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
-    case WM_CTLCOLORLISTBOX: {
-        if (isDarkTheme) {
-            HDC hdcListBox = (HDC)wParam;
-            SetTextColor(hdcListBox, dark_text);
-            SetBkColor(hdcListBox, dark_bg);
-            return (LRESULT)hbrDarkBkgnd;
-        }
-        return DefWindowProc(hWnd, message, wParam, lParam);
-    }
+    
     case WM_SHOW_ERROR_MSGBOX: {
         std::string* error_msg = (std::string*)lParam;
         MessageBox(hWnd, error_msg->c_str(), "Error", MB_OK | MB_ICONERROR);
@@ -514,9 +647,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             SendMessage(hInput, EM_SETSEL, 0, -1);
         }
         return DefWindowProc(hWnd, message, wParam, lParam);
-    case WM_COMMAND: {
-        int wmId = LOWORD(wParam);
-        int wmEvent = HIWORD(wParam);
+    case WM_COMMAND: { // Start of WM_COMMAND block
+        wmId = LOWORD(wParam);
+        wmEvent = HIWORD(wParam);
         
         // Handle input field changes to add thousands separators
         if (wmId == 100 && wmEvent == EN_CHANGE && !isUpdatingInput) {
@@ -629,148 +762,71 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                     } else {
                         setInputText(currentText + buttonText);
                     }
-                } else if (HIWORD(wParam) == LBN_DBLCLK) {
-                    int selected = SendMessage(hHistory, LB_GETCURSEL, 0, 0);
-                    if (selected != LB_ERR) {
-                        char buffer[256];
-                        SendMessage(hHistory, LB_GETTEXT, selected, (LPARAM)buffer);
-                        std::string historyLine(buffer);
-                        size_t pos = historyLine.find(" = ");
-                        if (pos != std::string::npos) {
-                            setInputText(historyLine.substr(pos + 3));
-                        }
-                    }
-                }
+                
                 break;
         }
-        break;
-    }
-    case WM_MEASUREITEM: {
-        LPMEASUREITEMSTRUCT lpmis = (LPMEASUREITEMSTRUCT)lParam;
-        if (lpmis->CtlID == 101) { // hHistory listbox
-            HDC hdc = GetDC(hWnd);
-            
-            // Get text metrics for normal font
-            HFONT oldFont = (HFONT)SelectObject(hdc, hNormalFont);
-            TEXTMETRIC tmNormal;
-            GetTextMetrics(hdc, &tmNormal);
-            int normalFontHeight = tmNormal.tmHeight + tmNormal.tmExternalLeading;
-            
-            // Get text metrics for small bold font
-            SelectObject(hdc, hSmallBoldFont);
-            TEXTMETRIC tmSmallBold;
-            GetTextMetrics(hdc, &tmSmallBold);
-            int smallBoldFontHeight = tmSmallBold.tmHeight + tmSmallBold.tmExternalLeading;
-            
-            // Use the maximum of the two heights
-            lpmis->itemHeight = std::max(normalFontHeight, smallBoldFontHeight);
-            
-            SelectObject(hdc, oldFont); // Restore original font
-            ReleaseDC(hWnd, hdc);
-            return TRUE;
-        }
-        break;
-    }
-    case WM_DRAWITEM: {
+    } // End of WM_COMMAND block
+    break;
+    
+    case WM_DRAWITEM: { // Start of WM_DRAWITEM block
         LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lParam;
-        if (dis->CtlID == 101) { // hHistory listbox
-            if (dis->itemID == -1) { // Empty item
-                // Erase the background of the empty listbox
-                COLORREF backgroundColor = isDarkTheme ? dark_bg : light_bg;
-                HBRUSH hbrBackground = CreateSolidBrush(backgroundColor);
-                FillRect(dis->hDC, &dis->rcItem, hbrBackground);
-                DeleteObject(hbrBackground);
-                return TRUE;
-            }
-
-            char buffer[512];
-            SendMessage(dis->hwndItem, LB_GETTEXT, dis->itemID, (LPARAM)buffer);
-            std::string itemText(buffer);
-
-            // Determine colors
-            COLORREF textColor, backgroundColor;
-            if (isDarkTheme) {
-                textColor = (dis->itemState & ODS_SELECTED) ? light_text : dark_text;
-                backgroundColor = (dis->itemState & ODS_SELECTED) ? light_bg : dark_bg;
-            } else {
-                textColor = (dis->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHTTEXT) : GetSysColor(COLOR_WINDOWTEXT);
-                backgroundColor = (dis->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHT) : GetSysColor(COLOR_WINDOW);
-            }
-
-            HBRUSH hbrBackground = CreateSolidBrush(backgroundColor);
-            FillRect(dis->hDC, &dis->rcItem, hbrBackground);
-            DeleteObject(hbrBackground);
-
-            SetBkColor(dis->hDC, backgroundColor);
-            SetTextColor(dis->hDC, textColor);
-
-            // Parse the string
-            size_t eq_pos = itemText.find(" = ");
-            std::string datetime_part;
-            std::string expression_result_part;
-
-            if (eq_pos != std::string::npos) {
-                datetime_part = itemText.substr(0, eq_pos);
-                expression_result_part = itemText.substr(eq_pos);
-            } else {
-                expression_result_part = itemText; // Fallback if " = " not found
-            }
-
-            // Get font metrics to calculate vertical centering
-            TEXTMETRIC tmNormal;
-            HFONT oldFont = (HFONT)SelectObject(dis->hDC, hNormalFont);
-            GetTextMetrics(dis->hDC, &tmNormal);
-            SelectObject(dis->hDC, hSmallBoldFont);
-            TEXTMETRIC tmSmallBold;
-            GetTextMetrics(dis->hDC, &tmSmallBold);
-            SelectObject(dis->hDC, oldFont); // Restore original font
-
-            int maxFontHeight = std::max(tmNormal.tmHeight + tmNormal.tmExternalLeading, tmSmallBold.tmHeight + tmSmallBold.tmExternalLeading);
-            int y_offset = dis->rcItem.top + (dis->rcItem.bottom - dis->rcItem.top - maxFontHeight) / 2;
-            if (y_offset < dis->rcItem.top) y_offset = dis->rcItem.top; // Ensure it doesn't go above the item top
-
-            // Draw datetime part with small bold font
-            oldFont = (HFONT)SelectObject(dis->hDC, hSmallBoldFont);
-            RECT datetimeRect = {dis->rcItem.left, y_offset, dis->rcItem.right, dis->rcItem.bottom};
-            DrawText(dis->hDC, datetime_part.c_str(), -1, &datetimeRect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP);
-
-            // Calculate position for expression/result part
-            SIZE datetimeSize;
-            GetTextExtentPoint32(dis->hDC, datetime_part.c_str(), datetime_part.length(), &datetimeSize);
-            int x_offset = dis->rcItem.left + datetimeSize.cx;
-
-            // Draw expression/result part with normal font
-            SelectObject(dis->hDC, hNormalFont);
-            RECT exprRect = {x_offset, y_offset, dis->rcItem.right, dis->rcItem.bottom};
-            DrawText(dis->hDC, expression_result_part.c_str(), -1, &exprRect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP);
-
-            SelectObject(dis->hDC, oldFont); // Restore original font
-
-            if (dis->itemState & ODS_FOCUS) {
-                DrawFocusRect(dis->hDC, &dis->rcItem);
-            }
-            return TRUE;
-        } else { // It's a button
+        // It's a button
             char buttonText[10];
             GetWindowText(dis->hwndItem, buttonText, 10);
 
-            COLORREF bgColor = isDarkTheme ? dark_btn_bg : light_btn_bg;
-            COLORREF textColor = isDarkTheme ? dark_btn_text : light_btn_text;
+            Gdiplus::Graphics graphics(dis->hDC);
+            graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
 
-            if (dis->itemState & ODS_SELECTED) {
-                bgColor = isDarkTheme ? RGB(0x55, 0x55, 0x55) : RGB(0xDD, 0xDD, 0xDD);
+            Gdiplus::Color gdipBgColor, gdipTextColor, gdipBorderColor;
+            
+            // Base colors
+            COLORREF baseBgColor = isDarkTheme ? dark_btn_bg : light_btn_bg;
+            COLORREF baseTextColor = isDarkTheme ? dark_btn_text : light_btn_text;
+            COLORREF baseBorderColor = isDarkTheme ? dark_border_color : RGB(170, 170, 170); // Light theme border
+
+            // Hover/Pressed states
+            if (dis->itemState & ODS_SELECTED) { // Button is pressed
+                baseBgColor = isDarkTheme ? RGB(0x55, 0x55, 0x55) : RGB(0xDD, 0xDD, 0xDD);
+            } else if (dis->itemState & ODS_HOTLIGHT) { // Button is hovered
+                // Slightly lighter background on hover
+                baseBgColor = isDarkTheme ? RGB(0x40, 0x40, 0x40) : RGB(0xF0, 0xF0, 0xF0);
             }
 
-            HBRUSH hbr = CreateSolidBrush(bgColor);
-            FillRect(dis->hDC, &dis->rcItem, hbr);
-            DeleteObject(hbr);
+            gdipBgColor.SetFromCOLORREF(baseBgColor);
+            gdipTextColor.SetFromCOLORREF(baseTextColor);
+            gdipBorderColor.SetFromCOLORREF(baseBorderColor);
 
-            SetBkMode(dis->hDC, TRANSPARENT);
-            SetTextColor(dis->hDC, textColor);
-            DrawText(dis->hDC, buttonText, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            Gdiplus::SolidBrush backgroundBrush(gdipBgColor);
+            Gdiplus::Pen borderPen(gdipBorderColor, 1);
+            
+            float radius = 5.0f; // 5px rounded corners
+
+            // Draw the rounded rectangle
+            DrawRoundedRect(&graphics, &borderPen, &backgroundBrush, 
+                            (float)dis->rcItem.left, (float)dis->rcItem.top, 
+                            (float)(dis->rcItem.right - dis->rcItem.left), 
+                            (float)(dis->rcItem.bottom - dis->rcItem.top), radius);
+
+            // Draw the text
+            Gdiplus::FontFamily fontFamily(L"Segoe UI");
+            Gdiplus::Font font(&fontFamily, 14, Gdiplus::FontStyleRegular, Gdiplus::UnitPoint); // 14pt font
+            Gdiplus::SolidBrush textBrush(gdipTextColor);
+            Gdiplus::StringFormat stringFormat;
+            stringFormat.SetAlignment(Gdiplus::StringAlignmentCenter);
+            stringFormat.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+
+            // Convert char* to WCHAR* for GDI+ DrawString
+            std::string sButtonText(buttonText);
+            std::wstring wsButtonText(sButtonText.begin(), sButtonText.end());
+
+            graphics.DrawString(wsButtonText.c_str(), -1, &font, 
+                                Gdiplus::RectF((float)dis->rcItem.left, (float)dis->rcItem.top, 
+                                               (float)(dis->rcItem.right - dis->rcItem.left), 
+                                               (float)(dis->rcItem.bottom - dis->rcItem.top)), 
+                                &stringFormat, &textBrush);
 
             return TRUE;
-        }
+        } // End of WM_DRAWITEM block
         break;
     }
     case WM_TIMER:
@@ -831,123 +887,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         DeleteObject(hSmallBoldFont);
         if (hbrDarkBkgnd) DeleteObject(hbrDarkBkgnd);
         if (hbrDarkBtn) DeleteObject(hbrDarkBtn);
+        if (hbrDarkInputHistoryBkgnd) DeleteObject(hbrDarkInputHistoryBkgnd);
+        Gdiplus::GdiplusShutdown(gdiplusToken);
         PostQuitMessage(0);
         break;
-    case WM_SIZE: {
-        // Get the new width and height of the client area
-        int newWidth = LOWORD(lParam);
-        int newHeight = HIWORD(lParam);
-
-        // Delete old fonts if they exist
-        if (hNormalFont) DeleteObject(hNormalFont);
-        if (hSmallBoldFont) DeleteObject(hSmallBoldFont);
-
-        // Create new fonts based on window height
-        LOGFONT lf;
-        GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(LOGFONT), &lf);
-        
-        // Base font sizes for a window height of 500 pixels
-        int baseNormalFontSize = 18;
-        int baseSmallBoldFontSize = 14;
-        int initialWindowHeight = 500; // The initial height of the window
-
-        // Calculate scaled font heights
-        int scaledNormalHeight = -MulDiv(baseNormalFontSize, newHeight, initialWindowHeight);
-        int scaledSmallBoldHeight = -MulDiv(baseSmallBoldFontSize, newHeight, initialWindowHeight);
-
-        // Apply reasonable min/max limits
-        if (scaledNormalHeight > -10) scaledNormalHeight = -10; // Min 10pt
-        if (scaledNormalHeight < -36) scaledNormalHeight = -36; // Max 36pt
-
-        if (scaledSmallBoldHeight > -8) scaledSmallBoldHeight = -8; // Min 8pt
-        if (scaledSmallBoldHeight < -28) scaledSmallBoldHeight = -28; // Max 28pt
-
-        lf.lfHeight = scaledNormalHeight;
-        hNormalFont = CreateFont(lf.lfHeight, lf.lfWidth, lf.lfEscapement, lf.lfOrientation, lf.lfWeight,
-                                 lf.lfItalic, lf.lfUnderline, lf.lfStrikeOut, lf.lfCharSet,
-                                 lf.lfOutPrecision, lf.lfClipPrecision, lf.lfQuality,
-                                 lf.lfPitchAndFamily, lf.lfFaceName);
-
-        lf.lfHeight = scaledSmallBoldHeight;
-        lf.lfWeight = FW_BOLD;
-        hSmallBoldFont = CreateFont(lf.lfHeight, lf.lfWidth, lf.lfEscapement, lf.lfOrientation, lf.lfWeight,
-                                    lf.lfItalic, lf.lfUnderline, lf.lfStrikeOut, lf.lfCharSet,
-                                    lf.lfOutPrecision, lf.lfClipPrecision, lf.lfQuality,
-                                    lf.lfPitchAndFamily, lf.lfFaceName);
-
-        // Apply normal font to hInput
-        SendMessage(hInput, WM_SETFONT, (WPARAM)hNormalFont, TRUE);
-
-        // Calculate scaled padding
-        initialWindowHeight = 500; // Use the same initial height as for fonts
-        int baseButtonPadding = 10;
-        int scaledButtonPadding = MulDiv(baseButtonPadding, newHeight, initialWindowHeight);
-        if (scaledButtonPadding < 5) scaledButtonPadding = 5; // Minimum padding
-        if (scaledButtonPadding > 20) scaledButtonPadding = 20; // Maximum padding
-
-        // Resize hInput
-        MoveWindow(hInput, scaledButtonPadding, scaledButtonPadding, newWidth - 2 * scaledButtonPadding, scaledNormalHeight * -1 + scaledButtonPadding, TRUE); // Use scaled font height for input height
-
-        // Resize hHistory
-        int historyTop = scaledButtonPadding + (scaledNormalHeight * -1 + scaledButtonPadding) + scaledButtonPadding; // Below input + padding
-        int minHistoryHeight = 50; // Minimum height for history
-        
-        // Calculate remaining height for buttons
-        int numRows = 5;
-        int numCols = 4;
-        int estimatedButtonHeight = (scaledNormalHeight * -1) + scaledButtonPadding; // Estimate button height based on font
-        int totalButtonAreaHeight = numRows * estimatedButtonHeight + (numRows + 1) * scaledButtonPadding;
-
-        int historyHeight = newHeight - historyTop - totalButtonAreaHeight - scaledButtonPadding;
-        if (historyHeight < minHistoryHeight) historyHeight = minHistoryHeight;
-
-        MoveWindow(hHistory, scaledButtonPadding, historyTop, newWidth - 2 * scaledButtonPadding, historyHeight, TRUE);
-        // Calculate new item height for the listbox
-        HDC hdc = GetDC(hWnd);
-        HFONT oldFont = (HFONT)SelectObject(hdc, hNormalFont);
-        TEXTMETRIC tmNormal;
-        GetTextMetrics(hdc, &tmNormal);
-        int normalFontHeight = tmNormal.tmHeight + tmNormal.tmExternalLeading;
-        
-        SelectObject(hdc, hSmallBoldFont);
-        TEXTMETRIC tmSmallBold;
-        GetTextMetrics(hdc, &tmSmallBold);
-        int smallBoldFontHeight = tmSmallBold.tmHeight + tmSmallBold.tmExternalLeading;
-        
-        int newCalculatedItemHeight = std::max(normalFontHeight, smallBoldFontHeight);
-        SelectObject(hdc, oldFont);
-        ReleaseDC(hWnd, hdc);
-
-        // Update the listbox item height
-        SendMessage(hHistory, LB_SETITEMHEIGHT, 0, newCalculatedItemHeight);
-        InvalidateRect(hHistory, NULL, TRUE); // Force redraw with new fonts and item height
-
-        // Reposition and resize buttons
-        int buttonId = 200;
-        int startY = historyTop + historyHeight + scaledButtonPadding;
-
-        int totalButtonWidth = newWidth - (numCols + 1) * scaledButtonPadding;
-        int buttonWidth = totalButtonWidth / numCols;
-        // Corrected calculation for buttonHeight
-        int availableSpaceForButtons = newHeight - startY - scaledButtonPadding;
-        int buttonHeight = (availableSpaceForButtons - (numRows - 1) * scaledButtonPadding) / numRows;
-
-        for (int i = 0; i < numRows; ++i) {
-            for (int j = 0; j < numCols; ++j) {
-                HWND hButton = GetDlgItem(hWnd, buttonId + (i * numCols + j));
-                if (hButton) {
-                    SendMessage(hButton, WM_SETFONT, (WPARAM)hNormalFont, TRUE); // Apply font to button
-                    MoveWindow(hButton, 
-                               scaledButtonPadding + j * (buttonWidth + scaledButtonPadding), 
-                               startY + i * (buttonHeight + scaledButtonPadding), 
-                               buttonWidth, 
-                               buttonHeight, 
-                               TRUE);
-                }
-            }
-        }
-        break;
-    }
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
