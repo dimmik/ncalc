@@ -327,25 +327,26 @@ void MinimizeToTray() {
     setNumlock(TRUE);
 }
 
+void perform_equals() {
+    char currentText[256];
+    GetWindowText(hInput, currentText, 256);
+    auto result = evaluateExpression(currentText);
+    if (result.first.empty()) {
+        setInputText(result.second);
+        addToHistory(currentText, result.second);
+    } else {
+        std::string* error_msg = new std::string(result.first);
+        PostMessage(hWnd, WM_SHOW_ERROR_MSGBOX, 0, (LPARAM)error_msg);
+    }
+}
+
 LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (!(hWnd == GetActiveWindow())) return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
     if (nCode == HC_ACTION) {
         KBDLLHOOKSTRUCT* p = (KBDLLHOOKSTRUCT*)lParam;
         if (wParam == WM_KEYDOWN && p->vkCode == VK_RETURN) {
-            char currentText[256];
-            GetWindowText(hInput, currentText, 256);
-            // evaluation - where it is called
-            auto result = evaluateExpression(currentText);
-            if (result.first.empty()) {
-                setInputText(result.second);
-                addToHistory(currentText, result.second);
-            } else {
-                // Can't show MessageBox directly from a low-level hook.
-                // Post a message to our own window and let it handle it.
-                std::string* error_msg = new std::string(result.first);
-                PostMessage(hWnd, WM_SHOW_ERROR_MSGBOX, 0, (LPARAM)error_msg);
-            }
-            return 1;
+            perform_equals();
+            return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
         }
     }
     return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
@@ -616,14 +617,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                     currentText.pop_back(); // remove null terminator
 
                     if (strcmp(buttonText, "=") == 0) {
-                        // evaluation - where it is called
-                        auto result = evaluateExpression(currentText);
-                        if (result.first.empty()) {
-                            setInputText(result.second);
-                            addToHistory(currentText, result.second);
-                        } else {
-                            MessageBox(hWnd, result.first.c_str(), "Error", MB_OK | MB_ICONERROR);
-                        }
+                        perform_equals();
                     } else if (strcmp(buttonText, "C") == 0) {
                         setInputText("");
                     } else {
