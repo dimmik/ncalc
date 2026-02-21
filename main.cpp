@@ -356,6 +356,16 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     log("Application started");
+
+    HANDLE hMutex = CreateMutex(NULL, TRUE, "NCalcMutex");
+    if (hMutex == NULL) {
+        MessageBox(NULL, "Failed to create mutex. Application cannot start.", "Error", MB_OK | MB_ICONERROR);
+        return 1;
+    } else if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        CloseHandle(hMutex);
+        return 0; // Another instance is already running
+    }
+
     hInst = hInstance;
 
     // Initialize history file path
@@ -446,6 +456,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    ReleaseMutex(hMutex);
+    CloseHandle(hMutex);
 
     return (int)msg.wParam;
 }
