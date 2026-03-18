@@ -222,6 +222,7 @@ std::string prepareExpression(const std::string& exp) {
 
     for (size_t i = 0; i < exp.length(); ++i) {
         char c = exp[i];
+        if (c == ',') c = '.'; // replace comma with dot
         if (c == '.') {
             // Check if the previous character is not a digit
             if (i == 0 || !isdigit(exp[i - 1])) {
