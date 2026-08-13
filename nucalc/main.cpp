@@ -144,6 +144,7 @@ static int g_theme = 0;   // 0 = dark, 1 = light
 
 #define TIMER_FADE     1
 #define TIMER_UI       2
+#define TIMER_NUMLOCK  3
 
 #define MAXHIST        300
 #define MAXVIS         8
@@ -1016,10 +1017,28 @@ static LRESULT CALLBACK EditProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 // a bare NumLock press/release system-wide without registering it as an
 // exclusive hotkey (which would fight/replace the OS's own NumLock
 // toggle). Both the key-down (which posts WM_APP_TOGGLE to the main
-// window) and the matching key-up are swallowed, so the real NumLock
-// LED/state never actually changes; Ctrl/Shift/Alt+NumLock pass through
-// untouched so the user can still toggle NumLock for real if they need to.
+// window) and the matching key-up are swallowed, so a bare NumLock press
+// never toggles the real NumLock state by itself; Ctrl/Shift/Alt+NumLock
+// pass through untouched. The OS toggle can still end up off (whatever
+// it was at process start, via that modifier passthrough, or via any
+// other path we don't control), so EnsureNumLockOn() is called at
+// startup, on every show/hide, and from a low-frequency TIMER_NUMLOCK
+// tick that runs for the app's whole lifetime, forcing it back on with
+// a synthetic keypress — so the numpad always types digits system-wide
+// even while the calculator is hidden in the tray.
 // ---------------------------------------------------------------- hook
+
+// Forces the real (OS-tracked) NumLock state on by injecting a synthetic
+// keypress when needed. Injected events carry LLKHF_INJECTED, so
+// LLKeyboard() below lets them fall through to CallNextHookEx() instead
+// of swallowing them — that's what lets this actually flip the OS state
+// (and the keyboard LED), unlike a genuine bare NumLock press.
+static void EnsureNumLockOn() {
+    if (!(GetKeyState(VK_NUMLOCK) & 1)) {
+        keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY, 0);
+        keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+    }
+}
 
 static LRESULT CALLBACK LLKeyboard(int code, WPARAM w, LPARAM l) {
     if (code == HC_ACTION) {
@@ -1136,6 +1155,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         break;
 
     case WM_APP_TOGGLE:
+        EnsureNumLockOn();
         if (w == 1) { ShowCalc(); return 0; }
         if (IsWindowVisible(h) && !g_hiding) {
             if (GetForegroundWindow() == h) HideCalc();
@@ -1179,6 +1199,10 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             ULONGLONG now = GetTickCount64();
             InvalidateRect(h, NULL, FALSE);
             if (now > g_errUntil && now > g_copiedUntil) KillTimer(h, TIMER_UI);
+            return 0;
+        }
+        if (w == TIMER_NUMLOCK) {
+            EnsureNumLockOn();
             return 0;
         }
         break;
@@ -1424,6 +1448,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     Layout();
     TrayAdd(firstRun);
     g_hook = SetWindowsHookExW(WH_KEYBOARD_LL, LLKeyboard, GetModuleHandleW(NULL), 0);
+    EnsureNumLockOn();
+    SetTimer(g_hwnd, TIMER_NUMLOCK, 1000, NULL);  // keep re-asserting for app's lifetime
 
     ShowCalc();
 
