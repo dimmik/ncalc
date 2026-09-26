@@ -69,9 +69,10 @@
 //                        only way to catch a bare NumLock press/release
 //                        system-wide without registering it as an
 //                        exclusive hotkey (which would fight the OS's
-//                        own NumLock toggle). It swallows both the
-//                        key-down (posts WM_APP_TOGGLE) and the matching
-//                        key-up, so the NumLock LED/state never changes.
+//                        own NumLock toggle). The key is let through
+//                        (swallowing it desyncs Windows' internal
+//                        NumLock state, see section 12) and its toggle
+//                        is undone right after with a synthetic press.
 //  13. Context menu       - the small right-click menu (Show/Hide,
 //                        autostart, clear history, quit).
 //  14. Window procedure   - WndProc() wires all of the above together:
@@ -135,6 +136,7 @@ static int g_theme = 0;   // 0 = dark, 1 = light
 
 #define WM_APP_TOGGLE (WM_APP + 1)   // wParam 1 = force show
 #define WM_APP_TRAY   (WM_APP + 2)
+#define WM_APP_NLUNDO (WM_APP + 3)   // re-toggle NumLock after a bare press
 
 #define ID_EDIT        1
 #define IDM_TOGGLE     100
@@ -205,7 +207,8 @@ static int  g_visRows = 0;
 static int  g_hoverRow = -1;
 static bool g_tracking = false;
 
-static bool g_swallowNLUp = false;
+static bool g_nlDown = false;     // real bare NumLock is held; undo its toggle on key-up
+static int  g_nlUndo = 0;         // WM_APP_NLUNDO messages posted but not handled yet
 static wchar_t g_histPath[MAX_PATH];
 
 // --- (3) text/format helpers: ASCII narrowing for tinyexpr's C-string
@@ -831,8 +834,8 @@ static void HideCalc() {
 
 // --- (11) input logic: live-eval-as-you-type, Enter-to-commit, Up/Down
 // history recall, and numpad-scancode decoding (so digits keep working
-// even when the NumLock LED is off, since the global hook below eats
-// the NumLock keystroke before Windows can toggle it). EditProc()
+// even while NumLock is off, e.g. during the brief toggle-and-undo the
+// global hook below does around each NumLock press). EditProc()
 // subclasses the EDIT control to intercept these before the default
 // edit-control window procedure sees them.
 // ---------------------------------------------------------------- input logic
@@ -916,8 +919,7 @@ static void NavHistory(int dir) {
     UpdateLive();
 }
 
-// numpad scancodes → chars (works even when NumLock LED is off,
-// since we swallow the NumLock key globally)
+// numpad scancodes → chars (works even while NumLock is off)
 static wchar_t NumpadChar(UINT vk, UINT sc, bool extended) {
     if (extended) return 0;
     switch (vk) {
@@ -1016,28 +1018,42 @@ static LRESULT CALLBACK EditProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 // --- (12) global hotkey hook: WH_KEYBOARD_LL is the only way to catch
 // a bare NumLock press/release system-wide without registering it as an
 // exclusive hotkey (which would fight/replace the OS's own NumLock
-// toggle). Both the key-down (which posts WM_APP_TOGGLE to the main
-// window) and the matching key-up are swallowed, so a bare NumLock press
-// never toggles the real NumLock state by itself; Ctrl/Shift/Alt+NumLock
-// pass through untouched. The OS toggle can still end up off (whatever
-// it was at process start, via that modifier passthrough, or via any
-// other path we don't control), so EnsureNumLockOn() is called at
-// startup, on every show/hide, and from a low-frequency TIMER_NUMLOCK
-// tick that runs for the app's whole lifetime, forcing it back on with
-// a synthetic keypress — so the numpad always types digits system-wide
-// even while the calculator is hidden in the tray.
+// toggle). The key-down posts WM_APP_TOGGLE to the main window.
+//
+// The NumLock key itself is NOT swallowed: Windows flips its raw
+// (driver-level) NumLock toggle — the one that decides whether numpad
+// scancodes become VK_NUMPADx or arrows/Home/End — before calling LL
+// hooks, while the async state (GetKeyState, and the LED) is only
+// flipped if the hook lets the key through. Eating the key therefore
+// left the LED on while every other app got arrows from the numpad,
+// and no API can even see that mismatch. Instead the bare press is let
+// through (both states toggle together) and, once it's released,
+// WM_APP_NLUNDO injects one more NumLock press to toggle both back.
+// The re-toggle is unconditional, so it doesn't depend on GetKeyState
+// being up to date for this (usually background) thread.
+//
+// Ctrl/Shift/Alt+NumLock pass through without the undo. The OS toggle
+// can still end up off (whatever it was at process start, via that
+// modifier passthrough, or via any other path we don't control), so
+// EnsureNumLockOn() is called at startup and from a low-frequency
+// TIMER_NUMLOCK tick that runs for the app's whole lifetime, forcing
+// it back on with a synthetic keypress — so the numpad always types
+// digits system-wide even while the calculator is hidden in the tray.
 // ---------------------------------------------------------------- hook
 
-// Forces the real (OS-tracked) NumLock state on by injecting a synthetic
-// keypress when needed. Injected events carry LLKHF_INJECTED, so
-// LLKeyboard() below lets them fall through to CallNextHookEx() instead
-// of swallowing them — that's what lets this actually flip the OS state
-// (and the keyboard LED), unlike a genuine bare NumLock press.
+// Injects one synthetic NumLock press+release. Injected events carry
+// LLKHF_INJECTED, so LLKeyboard() below ignores them.
+static void PressNumLock() {
+    keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY, 0);
+    keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+}
+
+// Forces the NumLock state on when it's off. Skipped while a bare press
+// is in flight: its toggle is already down and WM_APP_NLUNDO will revert
+// it, so "fixing" it here too would leave NumLock off.
 static void EnsureNumLockOn() {
-    if (!(GetKeyState(VK_NUMLOCK) & 1)) {
-        keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY, 0);
-        keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-    }
+    if (g_nlDown || g_nlUndo) return;
+    if (!(GetKeyState(VK_NUMLOCK) & 1)) PressNumLock();
 }
 
 static LRESULT CALLBACK LLKeyboard(int code, WPARAM w, LPARAM l) {
@@ -1048,14 +1064,17 @@ static LRESULT CALLBACK LLKeyboard(int code, WPARAM w, LPARAM l) {
                 bool mod = (GetAsyncKeyState(VK_CONTROL) & 0x8000) ||
                            (GetAsyncKeyState(VK_SHIFT) & 0x8000) ||
                            (k->flags & LLKHF_ALTDOWN);
-                if (!mod) {
-                    g_swallowNLUp = true;
+                // Autorepeat downs don't toggle NumLock; ignore them.
+                if (!mod && !g_nlDown) {
+                    g_nlDown = true;
                     PostMessageW(g_hwnd, WM_APP_TOGGLE, 0, 0);
-                    return 1;
                 }
-            } else if ((w == WM_KEYUP || w == WM_SYSKEYUP) && g_swallowNLUp) {
-                g_swallowNLUp = false;
-                return 1;
+            } else if ((w == WM_KEYUP || w == WM_SYSKEYUP) && g_nlDown) {
+                // Undo only after the release: a synthetic down while the
+                // real key is still held would count as a repeat.
+                g_nlDown = false;
+                ++g_nlUndo;
+                PostMessageW(g_hwnd, WM_APP_NLUNDO, 0, 0);
             }
         }
     }
@@ -1154,8 +1173,12 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         break;
 
+    case WM_APP_NLUNDO:
+        PressNumLock();
+        --g_nlUndo;
+        return 0;
+
     case WM_APP_TOGGLE:
-        EnsureNumLockOn();
         if (w == 1) { ShowCalc(); return 0; }
         if (IsWindowVisible(h) && !g_hiding) {
             if (GetForegroundWindow() == h) HideCalc();
