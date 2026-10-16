@@ -1,0 +1,63 @@
+# Builds nucalc.exe with MSYS2 UCRT64 (same toolchain as nucalc/build.sh).
+# Pull requests: build only, the exe is attached to the run as an artifact.
+# Push to master (i.e. a merged PR): also published as a GitHub release,
+# so the newest build is always at
+# https://github.com/<owner>/<repo>/releases/latest/download/nucalc.exe
+name: nucalc
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'nucalc/**'
+      - '.github/workflows/nucalc.yml'
+  pull_request:
+    paths:
+      - 'nucalc/**'
+      - '.github/workflows/nucalc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nucalc-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc
+
+      - name: Build
+        shell: msys2 {0}
+        run: ./nucalc/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nucalc
+          path: nucalc/nucalc.exe
+          if-no-files-found: error
+
+      - name: Publish release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="nucalc-build-${GITHUB_RUN_NUMBER}"
+          sha256=$(sha256sum nucalc/nucalc.exe | cut -d' ' -f1)
+          printf 'Automatic build of nucalc from %s.\n\nSHA-256: `%s`\n' \
+            "${GITHUB_SHA}" "${sha256}" > notes.md
+          gh release create "$tag" nucalc/nucalc.exe \
+            --target "$GITHUB_SHA" \
+            --title "nucalc build ${GITHUB_RUN_NUMBER}" \
+            --notes-file notes.md \
+            --latest
