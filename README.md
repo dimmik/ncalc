@@ -2,6 +2,11 @@
 
 `ncalc` is a lightweight, tray-resident calculator application for Windows. It's designed for quick access and calculation, primarily controlled via the NumLock key.
 
+## Download nucalc
+
+The newest build of `nucalc` (the calculator in the `nucalc/` folder) is built automatically on every merge to `master`:
+[nucalc.exe](https://github.com/dimmik/ncalc/releases/latest/download/nucalc.exe) — older builds are on the [Releases](https://github.com/dimmik/ncalc/releases) page.
+
 ## Features
 
 *   **NumLock Hotkey**: Toggle the calculator window visibility with a press of the NumLock key.
