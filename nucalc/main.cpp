@@ -6,6 +6,7 @@
 // Enter to evaluate and save to history (the result stays in the input,
 // a second Enter hides), press NumLock again to hide. Click "ans = ..."
 // on the bottom line to insert it; drag the window by its top strip.
+// The "x" at the top right hides to the tray; right-click it to quit.
 //
 // -----------------------------------------------------------------------
 // ARCHITECTURE
@@ -145,6 +146,7 @@ static int g_theme = 0;   // 0 = dark, 1 = light
 #define IDM_AUTOSTART  101
 #define IDM_CLEARHIST  102
 #define IDM_QUIT       103
+#define IDM_HIDE       104
 
 #define TIMER_FADE     1
 #define TIMER_UI       2
@@ -202,9 +204,9 @@ static int g_anchorX = 100, g_anchorBottom = 500;   // window bottom-left
 
 // layout rects, recomputed by Layout() and consumed by both Paint() and
 // the mouse hit-testing in WndProc()
-static RECT g_rcInput, g_rcResult, g_rcRows, g_rcTheme, g_rcGrip;
+static RECT g_rcInput, g_rcResult, g_rcRows, g_rcTheme, g_rcGrip, g_rcClose;
 static RECT g_rcAns;                 // clickable "ans = …" hint; set by Paint(), empty when hidden
-static bool g_hoverTheme = false, g_hoverAns = false;
+static bool g_hoverTheme = false, g_hoverAns = false, g_hoverClose = false;
 static RECT g_rowRc[MAXVIS];
 static int  g_rowEntry[MAXVIS];
 static int  g_visRows = 0;
@@ -576,6 +578,8 @@ static void Layout() {
     if (g_scroll < 0) g_scroll = 0;
 
     g_rcGrip = { 0, 0, W, gripH };
+    int cb = S(20);                    // close (hide) button, right end of the top strip
+    g_rcClose = { W - S(6) - cb, (gripH - cb) / 2 + S(1), W - S(6), (gripH - cb) / 2 + S(1) + cb };
     int y = gripH;
     g_rcRows = { S(8), y, W - S(8), y + vis * rowH };
     int base = g_histCount - vis - g_scroll;
@@ -637,6 +641,21 @@ static void Paint(HDC dc, const RECT *client) {
         int cx = W / 2, cy = (g_rcGrip.top + g_rcGrip.bottom) / 2;
         RECT g = { cx - gw / 2, cy - gh / 2, cx + gw / 2, cy - gh / 2 + gh };
         FillRR(dc, &g, gh / 2, CLR_BORDER, CLR_BORDER);
+    }
+
+    // close button: "x" glyph, hides to tray (right-click: menu with Quit)
+    {
+        if (g_hoverClose) FillRR(dc, &g_rcClose, S(4), CLR_HOVER, CLR_HOVER);
+        COLORREF col = g_hoverClose ? CLR_TEXT : CLR_DIM;
+        HPEN p = CreatePen(PS_SOLID, S(1) > 1 ? S(1) : 1, col);
+        HGDIOBJ op = SelectObject(dc, p);
+        int cx = (g_rcClose.left + g_rcClose.right) / 2;
+        int cy = (g_rcClose.top + g_rcClose.bottom) / 2;
+        int r = S(4);
+        MoveToEx(dc, cx - r, cy - r, NULL); LineTo(dc, cx + r + 1, cy + r + 1);
+        MoveToEx(dc, cx + r, cy - r, NULL); LineTo(dc, cx - r - 1, cy + r + 1);
+        SelectObject(dc, op);
+        DeleteObject(p);
     }
 
     // history rows
@@ -1154,6 +1173,20 @@ static void ShowMenu() {
     DestroyMenu(m);
 }
 
+// right-click menu of the close button: hide, or quit the app entirely
+static void ShowCloseMenu() {
+    HMENU m = CreatePopupMenu();
+    AppendMenuW(m, MF_STRING, IDM_HIDE, L"Hide to tray");
+    AppendMenuW(m, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(m, MF_STRING, IDM_QUIT, L"Quit " APP_NAME);
+    POINT pt;
+    GetCursorPos(&pt);
+    SetForegroundWindow(g_hwnd);
+    TrackPopupMenu(m, TPM_RIGHTBUTTON, pt.x, pt.y, 0, g_hwnd, NULL);
+    PostMessageW(g_hwnd, WM_NULL, 0, 0);
+    DestroyMenu(m);
+}
+
 // --- (14) window procedure: ties everything above together. Handles
 // double-buffered painting, mouse hit-testing against the layout rects
 // cached by Layout() (click a history row to reuse its expression,
@@ -1218,6 +1251,9 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             g_navPos = -1;
             HistSave();
             Layout();
+            return 0;
+        case IDM_HIDE:
+            HideCalc();
             return 0;
         case IDM_QUIT:
             DestroyWindow(h);
@@ -1299,7 +1335,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             POINT pt = { GET_X_LPARAM(l), GET_Y_LPARAM(l) };
             ScreenToClient(h, &pt);
             if (PtInRect(&g_rcInput, pt) || PtInRect(&g_rcResult, pt) ||
-                RowAt(pt) >= 0)
+                PtInRect(&g_rcClose, pt) || RowAt(pt) >= 0)
                 return HTCLIENT;
             return HTCAPTION;
         }
@@ -1311,6 +1347,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         GetCursorPos(&pt);
         ScreenToClient(h, &pt);
         if (RowAt(pt) >= 0 || PtInRect(&g_rcTheme, pt) || PtInRect(&g_rcAns, pt) ||
+            PtInRect(&g_rcClose, pt) ||
             (PtInRect(&g_rcResult, pt) && g_live != LIVE_EMPTY)) {
             SetCursor(LoadCursorW(NULL, IDC_HAND));
             return TRUE;
@@ -1334,6 +1371,11 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             g_hoverTheme = ht;
             InvalidateRect(h, &g_rcTheme, FALSE);
         }
+        bool hc = PtInRect(&g_rcClose, pt) != 0;
+        if (hc != g_hoverClose) {
+            g_hoverClose = hc;
+            InvalidateRect(h, &g_rcClose, FALSE);
+        }
         bool ha = PtInRect(&g_rcAns, pt) != 0;
         if (ha != g_hoverAns) {
             g_hoverAns = ha;
@@ -1355,6 +1397,10 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (g_hoverTheme) {
             g_hoverTheme = false;
             InvalidateRect(h, &g_rcTheme, FALSE);
+        }
+        if (g_hoverClose) {
+            g_hoverClose = false;
+            InvalidateRect(h, &g_rcClose, FALSE);
         }
         if (g_hoverAns) {
             g_hoverAns = false;
@@ -1384,6 +1430,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             UpdateLive();
             return 0;
         }
+        if (PtInRect(&g_rcClose, pt)) { HideCalc(); return 0; }
         if (PtInRect(&g_rcTheme, pt)) { ToggleTheme(); return 0; }
         if (PtInRect(&g_rcInput, pt)) { SetFocus(g_edit); return 0; }
         if (PtInRect(&g_rcAns, pt)) { InsertAns(); return 0; }
@@ -1403,6 +1450,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             CopyText(p);
             return 0;
         }
+        if (PtInRect(&g_rcClose, pt)) { ShowCloseMenu(); return 0; }
         ShowMenu();
         return 0;
     }
