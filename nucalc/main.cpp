@@ -3,7 +3,9 @@
 //
 // Usage: press NumLock to pop the window up under the cursor's monitor,
 // type an expression (numpad works even with the NumLock LED off), hit
-// Enter to evaluate and save to history, press NumLock again to hide.
+// Enter to evaluate and save to history (the result stays in the input,
+// a second Enter hides), press NumLock again to hide. Click "ans = ..."
+// on the bottom line to insert it; drag the window by its top strip.
 //
 // -----------------------------------------------------------------------
 // ARCHITECTURE
@@ -185,6 +187,7 @@ static double g_ans = 0.0;
 static int  g_navPos = -1;           // -1 = live input, 0 = newest history…
 static wchar_t g_draft[MAXEXPR];
 static bool g_settingText = false;
+static bool g_resultInEdit = false;  // edit still holds the untouched result of the last Enter
 
 enum { LIVE_EMPTY, LIVE_OK, LIVE_STALE };
 static int     g_live = LIVE_EMPTY;
@@ -199,8 +202,9 @@ static int g_anchorX = 100, g_anchorBottom = 500;   // window bottom-left
 
 // layout rects, recomputed by Layout() and consumed by both Paint() and
 // the mouse hit-testing in WndProc()
-static RECT g_rcInput, g_rcResult, g_rcRows, g_rcTheme;
-static bool g_hoverTheme = false;
+static RECT g_rcInput, g_rcResult, g_rcRows, g_rcTheme, g_rcGrip;
+static RECT g_rcAns;                 // clickable "ans = …" hint; set by Paint(), empty when hidden
+static bool g_hoverTheme = false, g_hoverAns = false;
 static RECT g_rowRc[MAXVIS];
 static int  g_rowEntry[MAXVIS];
 static int  g_visRows = 0;
@@ -562,15 +566,17 @@ static void ClampAnchor(int W, int H) {
 
 static void Layout() {
     int pad = S(14), rowH = S(26), inputH = S(46), resH = S(40);
+    int gripH = S(22);                 // empty top strip used as the drag handle
     int vis = CalcVis();
     int sepGap = vis ? S(12) : 0;
     int W = S(380);
-    int H = S(10) + vis * rowH + sepGap + inputH + S(6) + resH + S(10);
+    int H = gripH + vis * rowH + sepGap + inputH + S(6) + resH + S(10);
 
     if (g_scroll > g_histCount - vis) g_scroll = g_histCount - vis;
     if (g_scroll < 0) g_scroll = 0;
 
-    int y = S(10);
+    g_rcGrip = { 0, 0, W, gripH };
+    int y = gripH;
     g_rcRows = { S(8), y, W - S(8), y + vis * rowH };
     int base = g_histCount - vis - g_scroll;
     for (int i = 0; i < vis; ++i) {
@@ -624,6 +630,14 @@ static void Paint(HDC dc, const RECT *client) {
     DeleteObject(bg);
 
     ULONGLONG now = GetTickCount64();
+
+    // drag handle: a small pill centered in the top strip
+    {
+        int gw = S(36), gh = S(4) > 3 ? S(4) : 3;
+        int cx = W / 2, cy = (g_rcGrip.top + g_rcGrip.bottom) / 2;
+        RECT g = { cx - gw / 2, cy - gh / 2, cx + gw / 2, cy - gh / 2 + gh };
+        FillRR(dc, &g, gh / 2, CLR_BORDER, CLR_BORDER);
+    }
 
     // history rows
     SelectObject(dc, g_fHist);
@@ -706,6 +720,8 @@ static void Paint(HDC dc, const RECT *client) {
 
     // result line
     RECT res = g_rcResult;
+    SetRectEmpty(&g_rcAns);
+    int liveLeft = res.right;          // left edge of the "= value" block, if drawn
     if (now < g_copiedUntil) {
         SelectObject(dc, g_fSmall);
         SetTextColor(dc, CLR_ACCENT);
@@ -733,21 +749,37 @@ static void Paint(HDC dc, const RECT *client) {
         GetTextExtentPoint32W(dc, L"=", 1, &es);
         RECT er = { vr.left - es.cx - S(10), res.top, vr.left - S(10), res.bottom };
         DrawTextW(dc, L"=", 1, &er, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
-    } else if (g_live == LIVE_EMPTY && now >= g_copiedUntil && now >= g_errUntil) {
+        liveLeft = er.left;
+    }
+
+    if (now >= g_copiedUntil && !errFlash) {
         SelectObject(dc, g_fSmall);
-        SetTextColor(dc, CLR_DIM);
-        wchar_t hint[128];
         if (g_histCount) {
-            wchar_t a[64];
+            // "ans = …" on the left (click inserts it into the input), shown
+            // whenever it fits next to the live value
+            wchar_t a[64], ah[96];
             FmtDisplay(g_ans, a, 64);
-            wchar_t tmp[96];
-            lstrcpynW(tmp, a, 96);
-            wsprintfW(hint, L"ans = %s      \x00B7      NumLock hides", tmp);
-        } else {
-            wcscpy(hint, L"Type an expression \x2014 Enter saves \x00B7 NumLock hides");
+            wsprintfW(ah, L"ans = %s", a);
+            SIZE as;
+            GetTextExtentPoint32W(dc, ah, (int)wcslen(ah), &as);
+            RECT ar = { res.left + S(4), res.top, res.left + S(4) + as.cx, res.bottom };
+            if (ar.right + S(12) <= liveLeft) {
+                SetTextColor(dc, g_hoverAns ? CLR_TEXT : CLR_DIM);
+                DrawTextW(dc, ah, -1, &ar, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+                g_rcAns = ar;
+                if (g_live == LIVE_EMPTY) {
+                    SetTextColor(dc, CLR_DIM);
+                    RECT c = { ar.right, res.top, res.right, res.bottom };
+                    DrawTextW(dc, L"      \x00B7      NumLock hides", -1, &c,
+                              DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+                }
+            }
+        } else if (g_live == LIVE_EMPTY) {
+            SetTextColor(dc, CLR_DIM);
+            RECT c = { res.left + S(4), res.top, res.right, res.bottom };
+            DrawTextW(dc, L"Type an expression \x2014 Enter saves \x00B7 NumLock hides", -1, &c,
+                      DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
         }
-        RECT c = { res.left + S(4), res.top, res.right, res.bottom };
-        DrawTextW(dc, hint, -1, &c, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
     }
 
     // window border
@@ -841,6 +873,7 @@ static void HideCalc() {
 // ---------------------------------------------------------------- input logic
 
 static void SetEditText(const wchar_t *s) {
+    g_resultInEdit = false;          // Commit() sets it again after placing a result
     g_settingText = true;
     SetWindowTextW(g_edit, s);
     g_settingText = false;
@@ -877,7 +910,9 @@ static void Commit() {
     wchar_t t[MAXEXPR];
     GetWindowTextW(g_edit, t, MAXEXPR);
     trimw(t);
-    if (!t[0]) { HideCalc(); return; }
+    // Enter on an empty input, or on the just-committed result left
+    // untouched, hides the calculator (so Enter, Enter still dismisses it)
+    if (!t[0] || g_resultInEdit) { HideCalc(); return; }
 
     double v;
     int errPos = 0;
@@ -898,11 +933,28 @@ static void Commit() {
     g_scroll = 0;
     g_navPos = -1;
     g_draft[0] = 0;
-    SetEditText(L"");
-    g_live = LIVE_EMPTY;
-    g_liveDisp[0] = 0;
-    g_livePlain[0] = 0;
+    // leave the result in the input so the next calculation can continue
+    // from it; non-finite results (inf/nan) aren't valid input, so clear
+    if (isfinite(v)) {
+        wchar_t p[64];
+        FmtPlain(v, p, 64);
+        SetEditText(p);            // EN_CHANGE -> UpdateLive() refreshes the preview
+        g_resultInEdit = true;
+    } else {
+        SetEditText(L"");
+        g_live = LIVE_EMPTY;
+        g_liveDisp[0] = 0;
+        g_livePlain[0] = 0;
+    }
     Layout();
+}
+
+// inserts the current `ans` value at the caret (replacing any selection)
+static void InsertAns() {
+    wchar_t p[64];
+    FmtPlain(g_ans, p, 64);
+    SetFocus(g_edit);
+    SendMessageW(g_edit, EM_REPLACESEL, TRUE, (LPARAM)p);   // EN_CHANGE -> UpdateLive()
 }
 
 static void NavHistory(int dir) {
@@ -1149,7 +1201,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 
     case WM_COMMAND:
         if (LOWORD(w) == ID_EDIT && HIWORD(w) == EN_CHANGE) {
-            if (!g_settingText) g_navPos = -1;
+            if (!g_settingText) { g_navPos = -1; g_resultInEdit = false; }
             UpdateLive();
             return 0;
         }
@@ -1258,9 +1310,13 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         POINT pt;
         GetCursorPos(&pt);
         ScreenToClient(h, &pt);
-        if (RowAt(pt) >= 0 || PtInRect(&g_rcTheme, pt) ||
+        if (RowAt(pt) >= 0 || PtInRect(&g_rcTheme, pt) || PtInRect(&g_rcAns, pt) ||
             (PtInRect(&g_rcResult, pt) && g_live != LIVE_EMPTY)) {
             SetCursor(LoadCursorW(NULL, IDC_HAND));
+            return TRUE;
+        }
+        if (PtInRect(&g_rcGrip, pt)) {
+            SetCursor(LoadCursorW(NULL, IDC_SIZEALL));
             return TRUE;
         }
         break;
@@ -1278,6 +1334,11 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             g_hoverTheme = ht;
             InvalidateRect(h, &g_rcTheme, FALSE);
         }
+        bool ha = PtInRect(&g_rcAns, pt) != 0;
+        if (ha != g_hoverAns) {
+            g_hoverAns = ha;
+            InvalidateRect(h, &g_rcResult, FALSE);
+        }
         if (!g_tracking) {
             TRACKMOUSEEVENT tme = { sizeof tme, TME_LEAVE, h, 0 };
             TrackMouseEvent(&tme);
@@ -1294,6 +1355,10 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (g_hoverTheme) {
             g_hoverTheme = false;
             InvalidateRect(h, &g_rcTheme, FALSE);
+        }
+        if (g_hoverAns) {
+            g_hoverAns = false;
+            InvalidateRect(h, &g_rcResult, FALSE);
         }
         return 0;
 
@@ -1321,6 +1386,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         if (PtInRect(&g_rcTheme, pt)) { ToggleTheme(); return 0; }
         if (PtInRect(&g_rcInput, pt)) { SetFocus(g_edit); return 0; }
+        if (PtInRect(&g_rcAns, pt)) { InsertAns(); return 0; }
         if (PtInRect(&g_rcResult, pt) && g_livePlain[0]) {
             CopyText(g_livePlain);
             return 0;
