@@ -54,6 +54,9 @@ For log = natural log uncomment the next line. */
 
 typedef double (*te_fun2)(double, double);
 
+/* NuCalc: see tinyexpr.h. */
+int te_percent_of_lhs = 0;
+
 enum {
     TOK_NULL = TE_CLOSURE7+1, TOK_ERROR, TOK_END, TOK_SEP,
     TOK_OPEN, TOK_CLOSE, TOK_NUMBER, TOK_VARIABLE, TOK_INFIX, TOK_PERCENT
@@ -236,8 +239,6 @@ static double negate(double a) {return -a;}
 static double percent(double a) {return a / 100.0;}
 static double add_pct(double a, double b) {return a + a * b / 100.0;}
 static double sub_pct(double a, double b) {return a - a * b / 100.0;}
-
-int te_percent_of_lhs = 0;
 static double comma(double a, double b) {(void)a; return b;}
 
 
@@ -301,7 +302,7 @@ void next_token(state *s) {
                          * so 55*5% = 2.75. "a%b" stays modulo. */
                         const char *p = s->next;
                         while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
-                        if ((*p >= '0' && *p <= '9') || *p == '.' || isalpha(*p) || *p == '(') {
+                        if ((*p >= '0' && *p <= '9') || *p == '.' || isalpha((unsigned char)*p) || *p == '(') {
                             s->type = TOK_INFIX; s->function = fmod;
                         } else {
                             s->type = TOK_PERCENT;
@@ -584,12 +585,22 @@ static te_expr *expr(state *s) {
         te_expr *te = term(s);
         CHECK_NULL(te, te_free(ret));
 
-        /* NuCalc: "a + b%" -> a + a*b/100 when the whole right term is b%. */
-        if (te_percent_of_lhs && te->type == (TE_FUNCTION1 | TE_FLAG_PURE) && te->function == percent) {
-            te_expr *b = te->parameters[0];
-            free(te);
-            te = b;
-            t = (t == add) ? add_pct : sub_pct;
+        /* NuCalc: "a + b%" -> a + a*b/100 when the whole right term is b%
+         * (or -(b%), as in "a+-b%", which flips the operation). */
+        if (te_percent_of_lhs) {
+            int neg = 0;
+            te_expr *p = te;
+            if (p->type == (TE_FUNCTION1 | TE_FLAG_PURE) && p->function == negate) {
+                p = p->parameters[0];
+                neg = 1;
+            }
+            if (p->type == (TE_FUNCTION1 | TE_FLAG_PURE) && p->function == percent) {
+                te_expr *b = p->parameters[0];
+                if (neg) free(te);
+                free(p);
+                te = b;
+                t = ((t == add) != neg) ? add_pct : sub_pct;
+            }
         }
 
         te_expr *prev = ret;
