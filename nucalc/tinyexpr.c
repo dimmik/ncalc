@@ -54,9 +54,12 @@ For log = natural log uncomment the next line. */
 
 typedef double (*te_fun2)(double, double);
 
+/* NuCalc: see tinyexpr.h. */
+int te_percent_of_lhs = 0;
+
 enum {
     TOK_NULL = TE_CLOSURE7+1, TOK_ERROR, TOK_END, TOK_SEP,
-    TOK_OPEN, TOK_CLOSE, TOK_NUMBER, TOK_VARIABLE, TOK_INFIX
+    TOK_OPEN, TOK_CLOSE, TOK_NUMBER, TOK_VARIABLE, TOK_INFIX, TOK_PERCENT
 };
 
 
@@ -233,6 +236,9 @@ static double sub(double a, double b) {return a - b;}
 static double mul(double a, double b) {return a * b;}
 static double divide(double a, double b) {return a / b;}
 static double negate(double a) {return -a;}
+static double percent(double a) {return a / 100.0;}
+static double add_pct(double a, double b) {return a + a * b / 100.0;}
+static double sub_pct(double a, double b) {return a - a * b / 100.0;}
 static double comma(double a, double b) {(void)a; return b;}
 
 
@@ -290,7 +296,19 @@ void next_token(state *s) {
                     case '*': s->type = TOK_INFIX; s->function = mul; break;
                     case '/': s->type = TOK_INFIX; s->function = divide; break;
                     case '^': s->type = TOK_INFIX; s->function = pow; break;
-                    case '%': s->type = TOK_INFIX; s->function = fmod; break;
+                    case '%': {
+                        /* NuCalc: "%" with no operand after it (end of input, ")",
+                         * ",", another operator) is a postfix percent: 5% = 0.05,
+                         * so 55*5% = 2.75. "a%b" stays modulo. */
+                        const char *p = s->next;
+                        while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+                        if ((*p >= '0' && *p <= '9') || *p == '.' || isalpha((unsigned char)*p) || *p == '(') {
+                            s->type = TOK_INFIX; s->function = fmod;
+                        } else {
+                            s->type = TOK_PERCENT;
+                        }
+                        break;
+                    }
                     case '(': s->type = TOK_OPEN; break;
                     case ')': s->type = TOK_CLOSE; break;
                     case ',': s->type = TOK_SEP; break;
@@ -413,6 +431,16 @@ static te_expr *base(state *s) {
             s->type = TOK_ERROR;
             ret->value = NAN;
             break;
+    }
+
+    /* NuCalc: postfix percent binds tightest, like a factorial would. */
+    while (s->type == TOK_PERCENT) {
+        te_expr *prev = ret;
+        ret = NEW_EXPR(TE_FUNCTION1 | TE_FLAG_PURE, ret);
+        CHECK_NULL(ret, te_free(prev));
+
+        ret->function = percent;
+        next_token(s);
     }
 
     return ret;
@@ -556,6 +584,24 @@ static te_expr *expr(state *s) {
         next_token(s);
         te_expr *te = term(s);
         CHECK_NULL(te, te_free(ret));
+
+        /* NuCalc: "a + b%" -> a + a*b/100 when the whole right term is b%
+         * (or -(b%), as in "a+-b%", which flips the operation). */
+        if (te_percent_of_lhs) {
+            int neg = 0;
+            te_expr *p = te;
+            if (p->type == (TE_FUNCTION1 | TE_FLAG_PURE) && p->function == negate) {
+                p = p->parameters[0];
+                neg = 1;
+            }
+            if (p->type == (TE_FUNCTION1 | TE_FLAG_PURE) && p->function == percent) {
+                te_expr *b = p->parameters[0];
+                if (neg) free(te);
+                free(p);
+                te = b;
+                t = ((t == add) != neg) ? add_pct : sub_pct;
+            }
+        }
 
         te_expr *prev = ret;
         ret = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, ret, te);

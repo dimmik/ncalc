@@ -69,6 +69,11 @@ double te_interp(const char *expression, int *error);
 /* Returns NULL on error. */
 te_expr *te_compile(const char *expression, const te_variable *variables, int var_count, int *error);
 
+/* NuCalc: when non-zero, "a + b%" / "a - b%" take b percent of a
+ * (100+5% = 105, like phone/desk calculators); otherwise b% is just b/100.
+ * Read at compile time. */
+extern int te_percent_of_lhs;
+
 /* Evaluates the expression. */
 double te_eval(const te_expr *n);
 

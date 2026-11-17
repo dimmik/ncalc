@@ -77,7 +77,7 @@
 //                        NumLock state, see section 12) and its toggle
 //                        is undone right after with a synthetic press.
 //  13. Context menu       - the small right-click menu (Show/Hide,
-//                        autostart, clear history, quit).
+//                        autostart, percent mode, clear history, quit).
 //  14. Window procedure   - WndProc() wires all of the above together:
 //                        painting, mouse hit-testing against the cached
 //                        layout rects (click a history row to reuse it,
@@ -147,6 +147,7 @@ static int g_theme = 0;   // 0 = dark, 1 = light
 #define IDM_CLEARHIST  102
 #define IDM_QUIT       103
 #define IDM_HIDE       104
+#define IDM_PCTLHS     105
 
 #define TIMER_FADE     1
 #define TIMER_UI       2
@@ -1162,6 +1163,8 @@ static void ShowMenu() {
     AppendMenuW(m, MF_STRING, IDM_TOGGLE, vis ? L"Hide\tNumLock" : L"Show\tNumLock");
     AppendMenuW(m, MF_STRING | (AutostartGet() ? MF_CHECKED : 0), IDM_AUTOSTART,
                 L"Start with Windows");
+    AppendMenuW(m, MF_STRING | (te_percent_of_lhs ? MF_CHECKED : 0), IDM_PCTLHS,
+                L"Percent of left side (100+5% = 105)");
     AppendMenuW(m, MF_STRING, IDM_CLEARHIST, L"Clear history");
     AppendMenuW(m, MF_SEPARATOR, 0, NULL);
     AppendMenuW(m, MF_STRING, IDM_QUIT, L"Quit " APP_NAME);
@@ -1244,6 +1247,11 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             return 0;
         case IDM_AUTOSTART:
             AutostartSet(!AutostartGet());
+            return 0;
+        case IDM_PCTLHS:
+            te_percent_of_lhs = !te_percent_of_lhs;
+            RegSetD(L"pctlhs", (DWORD)te_percent_of_lhs);
+            UpdateLive();
             return 0;
         case IDM_CLEARHIST:
             g_histCount = 0;
@@ -1523,6 +1531,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     } else {
         wcscpy(g_histPath, L"nucalc_history.txt");
     }
+
+    te_percent_of_lhs = RegGetD(L"pctlhs", 1) ? 1 : 0;   // on by default
 
     // theme: saved choice, else follow the system apps-theme setting
     DWORD th = RegGetD(L"theme", 0xFFFFFFFF);
